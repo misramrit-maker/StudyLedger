@@ -31,18 +31,20 @@
   .blessing-banner{
     background:linear-gradient(135deg,var(--deep-green),var(--deep-green-soft));
     border-radius:18px;
-    padding:16px 18px;
+    padding:18px;
     margin-bottom:16px;
     display:flex;
     align-items:center;
-    gap:16px;
+    gap:18px;
     color:#F3F7F1;
+    flex-wrap:wrap;
   }
   .blessing-banner img{
-    width:64px;height:64px;border-radius:14px;object-fit:cover;flex-shrink:0;
+    width:112px;height:135px;border-radius:14px;object-fit:cover;flex-shrink:0;
     background:rgba(255,255,255,0.12);
+    box-shadow:0 4px 14px rgba(0,0,0,0.25);
   }
-  .blessing-banner .shlokas{display:flex;flex-direction:column;gap:8px;min-width:0;}
+  .blessing-banner .shlokas{display:flex;flex-direction:column;gap:10px;min-width:220px;flex:1;}
   .blessing-banner .shloka-block p{margin:0;}
   .blessing-banner .sanskrit{font-family:var(--serif);font-size:14.5px;font-weight:600;line-height:1.4;}
   .blessing-banner .translit{font-size:11.5px;font-style:italic;color:#CFE3D9;margin-top:1px;}
@@ -133,7 +135,26 @@
   .modal .test-result.ok{color:var(--sage);}
   .modal .test-result.err{color:var(--coral);}
 
-  ::selection{background:var(--teal-tint);}
+  .daily-section{margin-top:8px;}
+  .daily-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;flex-wrap:wrap;}
+  .daily-head h2{font-family:var(--serif);font-size:20px;font-weight:700;margin:0;color:var(--navy);}
+  .daily-total{font-family:var(--mono);font-size:12px;color:var(--ink-soft);background:var(--navy-tint);padding:5px 12px;border-radius:999px;font-weight:700;}
+  .daily-form{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+  .daily-form .field{display:flex;flex-direction:column;gap:4px;}
+  .daily-form label{font-family:var(--mono);font-size:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0.4px;}
+  .daily-form input, .daily-form textarea{padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;font-family:var(--sans);background:var(--paper);color:var(--ink);outline:none;}
+  .daily-form input:focus, .daily-form textarea:focus{border-color:var(--navy);}
+  .daily-form input[type=date]{width:150px;}
+  .daily-form input[type=number]{width:90px;}
+  .daily-form .summary-field{flex:1;min-width:200px;}
+  .daily-form textarea{width:100%;min-height:38px;resize:vertical;box-sizing:border-box;}
+  .daily-form button{padding:10px 18px;border-radius:999px;border:none;background:var(--navy);color:#fff;font-weight:700;font-size:13px;cursor:pointer;}
+  .daily-list{display:flex;flex-direction:column;gap:8px;}
+  .daily-entry{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:12px 16px;display:flex;align-items:center;gap:14px;}
+  .daily-entry .de-date{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--navy);width:88px;flex-shrink:0;}
+  .daily-entry .de-hours{font-family:var(--mono);font-size:12px;background:var(--navy-tint);color:var(--navy);border-radius:999px;padding:3px 10px;flex-shrink:0;font-weight:700;}
+  .daily-entry .de-summary{font-size:13.5px;color:var(--ink);flex:1;min-width:0;}
+  .daily-entry .de-remove{border:none;background:none;color:var(--coral);cursor:pointer;font-size:14px;flex-shrink:0;}
 </style>
 </head>
 <body>
@@ -168,6 +189,29 @@
   <div class="tabs" id="tabs"></div>
 
   <div id="subjectPane"></div>
+
+  <div class="daily-section">
+    <div class="daily-head">
+      <h2>Daily study tracker</h2>
+      <span class="daily-total" id="dailyTotal">0 hrs logged</span>
+    </div>
+    <div class="daily-form">
+      <div class="field">
+        <label>Date</label>
+        <input type="date" id="dailyDateInput">
+      </div>
+      <div class="field">
+        <label>Hours studied</label>
+        <input type="number" id="dailyHoursInput" min="0" step="0.25" placeholder="1.5">
+      </div>
+      <div class="field summary-field">
+        <label>What was studied</label>
+        <textarea id="dailySummaryInput" placeholder="e.g. Maths chapter 3 practice problems, revised Science notes..."></textarea>
+      </div>
+      <button id="addDailyBtn">+ Add entry</button>
+    </div>
+    <div class="daily-list" id="dailyList"></div>
+  </div>
 </div>
 
 <div class="overlay" id="settingsOverlay">
@@ -198,7 +242,7 @@ const PALETTE = [
 const uid = () => Math.random().toString(36).slice(2, 10);
 function todayStr(){ return new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}); }
 
-let state = { subjects: [], selectedId: null };
+let state = { subjects: [], selectedId: null, dailyLog: [] };
 let syncUrl = localStorage.getItem("studyLedgerSyncUrl") || CONFIG.SYNC_URL || "";
 let pushTimer = null;
 let syncState = "off"; // off | saving | saved | error
@@ -208,6 +252,7 @@ function loadLocal(){
     const raw = localStorage.getItem("studyLedgerData");
     if(raw) state = Object.assign(state, JSON.parse(raw));
   }catch(e){ console.error("Local load failed", e); }
+  if(!Array.isArray(state.dailyLog)) state.dailyLog = [];
   if(!state.selectedId && state.subjects.length) state.selectedId = state.subjects[0].id;
 }
 function saveLocalOnly(){
@@ -218,6 +263,7 @@ function render(){
   renderSyncStatus();
   renderTabs();
   renderSubjectPane();
+  renderDailyLog();
   saveLocalOnly();
   scheduleRemoteSave();
 }
@@ -247,7 +293,7 @@ async function pushToScript(){
     await fetch(syncUrl, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ subjects: state.subjects })
+      body: JSON.stringify({ subjects: state.subjects, dailyLog: state.dailyLog })
     });
     setSyncState("saved");
   }catch(e){
@@ -265,9 +311,13 @@ async function pullFromScript(){
       state.subjects = data.subjects;
       state.selectedId = state.subjects.length ? state.subjects[0].id : null;
     }
+    if(data && Array.isArray(data.dailyLog) && data.dailyLog.length && state.dailyLog.length === 0){
+      state.dailyLog = data.dailyLog;
+    }
     setSyncState("saved");
     renderTabs();
     renderSubjectPane();
+    renderDailyLog();
   }catch(e){
     console.error("Pull failed", e);
     setSyncState("error", e.message);
@@ -616,6 +666,47 @@ document.getElementById("testBtn").onclick = async () => {
     result.textContent = "Couldn't connect: " + e.message;
     result.className = "test-result err";
   }
+};
+
+function renderDailyLog(){
+  const list = document.getElementById("dailyList");
+  const total = state.dailyLog.reduce((a, e) => a + (Number(e.hours) || 0), 0);
+  document.getElementById("dailyTotal").textContent = `${Math.round(total*100)/100} hrs logged`;
+
+  if(state.dailyLog.length === 0){
+    list.innerHTML = `<div class="empty">No study sessions logged yet — add today's above.</div>`;
+    return;
+  }
+  const sorted = [...state.dailyLog].sort((a,b) => (b.date||"").localeCompare(a.date||""));
+  list.innerHTML = "";
+  sorted.forEach(entry => {
+    const row = document.createElement("div");
+    row.className = "daily-entry";
+    const dateLabel = entry.date ? new Date(entry.date).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}) : "—";
+    row.innerHTML = `
+      <span class="de-date">${dateLabel}</span>
+      <span class="de-hours">${entry.hours || 0} hrs</span>
+      <span class="de-summary">${escapeHtml(entry.summary || "")}</span>
+      <button class="de-remove" title="Remove entry">&times;</button>`;
+    row.querySelector(".de-remove").onclick = () => {
+      state.dailyLog = state.dailyLog.filter(e => e.id !== entry.id);
+      render();
+    };
+    list.appendChild(row);
+  });
+}
+
+document.getElementById("addDailyBtn").onclick = () => {
+  const dateInput = document.getElementById("dailyDateInput");
+  const hoursInput = document.getElementById("dailyHoursInput");
+  const summaryInput = document.getElementById("dailySummaryInput");
+  const date = dateInput.value || new Date().toISOString().slice(0,10);
+  const hours = parseFloat(hoursInput.value) || 0;
+  const summary = summaryInput.value.trim();
+  if(!summary){ summaryInput.focus(); return; }
+  state.dailyLog.push({ id: uid(), date, hours, summary });
+  dateInput.value = ""; hoursInput.value = ""; summaryInput.value = "";
+  render();
 };
 
 loadLocal();
