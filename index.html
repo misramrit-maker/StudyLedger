@@ -310,14 +310,28 @@ function setSyncState(s, detail){
 }
 function renderSyncStatus(){ setSyncState(syncState); }
 
+async function safeJson(res){
+  const text = await res.text();
+  try{
+    return JSON.parse(text);
+  }catch(e){
+    if(text.trim().startsWith("<")){
+      throw new Error('Apps Script returned a sign-in/error page instead of data — check the deployment is set to "Anyone" access and redeploy a new version.');
+    }
+    throw new Error("Unexpected response from Apps Script.");
+  }
+}
+
 async function pushToScript(){
   if(!syncUrl) return;
   try{
-    await fetch(syncUrl, {
+    const res = await fetch(syncUrl, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({ subjects: state.subjects, dailyLog: state.dailyLog })
     });
+    const data = await safeJson(res);
+    if(data && data.ok === false){ throw new Error(data.error || "Apps Script reported an error."); }
     setSyncState("saved");
   }catch(e){
     console.error("Push failed", e);
@@ -329,13 +343,13 @@ async function pullFromScript(){
   if(!syncUrl) return;
   try{
     const res = await fetch(syncUrl, { method: "GET" });
-    const data = await res.json();
-    if(data && Array.isArray(data.subjects) && data.subjects.length && state.subjects.length === 0){
+    const data = await safeJson(res);
+    if(data && Array.isArray(data.subjects)){
       state.subjects = data.subjects;
       state.selectedId = state.subjects.length ? state.subjects[0].id : null;
       collapseAllChapters();
     }
-    if(data && Array.isArray(data.dailyLog) && data.dailyLog.length && state.dailyLog.length === 0){
+    if(data && Array.isArray(data.dailyLog)){
       state.dailyLog = data.dailyLog;
     }
     setSyncState("saved");
@@ -699,7 +713,7 @@ document.getElementById("testBtn").onclick = async () => {
   result.className = "test-result";
   try{
     const res = await fetch(url, { method: "GET" });
-    const data = await res.json();
+    const data = await safeJson(res);
     if(data && data.error){ throw new Error(data.error); }
     result.textContent = "Connected — found " + (Array.isArray(data.subjects) ? data.subjects.length : 0) + " subject(s) in the sheet.";
     result.className = "test-result ok";
