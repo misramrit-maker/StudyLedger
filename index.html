@@ -413,8 +413,29 @@ function renderChapter(subject, ch, color){
   nameRow.appendChild(toggle);
   nameRow.appendChild(nameInput);
   top.appendChild(nameRow);
-  top.appendChild(renderBubbles(ch, color));
+  if(!ch._open){
+    const hint = document.createElement("span");
+    hint.style.fontFamily = "var(--mono)";
+    hint.style.fontSize = "10.5px";
+    hint.style.color = "var(--ink-faint)";
+    hint.style.flexShrink = "0";
+    const bits = [];
+    if(ch.confidence) bits.push(["😬","😅","🙂","💪","🌟"][ch.confidence-1]);
+    if(ch.revisions.length) bits.push(`${ch.revisions.length} revised`);
+    hint.textContent = bits.join(" · ");
+    top.appendChild(hint);
+  }
   wrap.appendChild(top);
+
+  if(!ch._open){
+    return wrap;
+  }
+
+  const bubblesRow = document.createElement("div");
+  bubblesRow.style.marginTop = "8px";
+  bubblesRow.style.marginLeft = "22px";
+  bubblesRow.appendChild(renderBubbles(ch, color));
+  wrap.appendChild(bubblesRow);
 
   const meta = document.createElement("div");
   meta.className = "chapter-meta";
@@ -437,21 +458,7 @@ function renderChapter(subject, ch, color){
   meta.appendChild(removeBtn);
   wrap.appendChild(meta);
 
-  if((ch.teacher || ch.classDate) && !ch._open){
-    const summary = document.createElement("div");
-    summary.style.marginLeft = "22px";
-    summary.style.marginTop = "4px";
-    summary.style.fontFamily = "var(--sans)";
-    summary.style.fontSize = "12px";
-    summary.style.color = "var(--ink-faint)";
-    const parts = [];
-    if(ch.teacher) parts.push(`taught by ${ch.teacher}`);
-    if(ch.classDate) parts.push(`on ${new Date(ch.classDate).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}`);
-    summary.textContent = parts.join(" ");
-    wrap.appendChild(summary);
-  }
-
-  if(ch._open){
+  {
     const body = document.createElement("div");
     body.className = "chapter-body";
 
@@ -635,7 +642,7 @@ function removeSubject(id){
   render();
 }
 function addChapter(subject){
-  subject.chapters.push({ id: uid(), name: "New chapter", concepts: [], formulae: [], notes: "", confidence: 0, revisions: [], teacher: "", classDate: "", taught: "", _open: true });
+  subject.chapters.push({ id: uid(), name: "New chapter", concepts: [], formulae: [], notes: "", confidence: 0, revisions: [], teacher: "", classDate: "", taught: "", _open: false });
   render();
 }
 
