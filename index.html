@@ -4,15 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>Study Ledger</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap">
 <style>
   :root{
     --paper:#F8F6FE;
     --paper-alt:#EFEAFB;
     --card:#FFFFFF;
-    --ink:#251C3D;
-    --ink-soft:#6E6690;
-    --ink-faint:#A8A0C4;
+    --ink:#000000;
+    --ink-soft:#1A1A1A;
+    --ink-faint:#3D3D3D;
     --line:#E3DDF5;
     --teal:#06B98A;     --teal-tint:#D8FBF0;
     --amber:#FFA800;    --amber-tint:#FFF1D6;
@@ -55,7 +55,7 @@
   .wrap{max-width:680px;margin:0 auto;padding:20px 18px 80px;}
 
   header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px;padding-top:6px;}
-  .brand h1{font-family:var(--serif);font-size:28px;font-weight:700;margin:0 0 3px;letter-spacing:0.2px;background:linear-gradient(90deg,var(--plum),var(--coral) 50%,var(--amber));-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .brand h1{font-family:"Playfair Display",Georgia,serif;font-size:28px;font-weight:700;margin:0 0 3px;letter-spacing:0.2px;color:var(--deep-green);}
   .brand p{margin:0;color:var(--ink-soft);font-size:13px;font-weight:500;}
   .gear{background:var(--card);border:1.5px solid var(--line);border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink-soft);flex-shrink:0;font-size:16px;box-shadow:var(--shadow);}
   .gear:hover{background:var(--paper-alt);transform:rotate(20deg);transition:transform 150ms ease;}
@@ -74,6 +74,7 @@
   .tab .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
   .tab.active{color:var(--ink);border-color:transparent;box-shadow:var(--shadow);}
   .tab-add{flex:0 0 auto;padding:10px 16px;border-radius:999px;border:1.5px dashed var(--ink-faint);background:transparent;font-size:13.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;}
+  .daily-tab{border-color:var(--navy);}
 
   .subject-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;}
   .subject-head input{font-family:var(--serif);font-size:24px;font-weight:700;border:none;background:transparent;color:inherit;outline:none;flex:1;min-width:0;padding:2px 0;}
@@ -192,9 +193,10 @@
 
   <div class="daily-section">
     <div class="daily-head">
-      <h2>Daily study tracker</h2>
+      <h2>📅 Daily study tracker</h2>
       <span class="daily-total" id="dailyTotal">0 hrs logged</span>
     </div>
+    <button id="backToSubjects" style="background:none;border:none;color:var(--navy);font-family:var(--mono);font-size:12px;cursor:pointer;padding:0 0 12px;text-decoration:underline;">&larr; back to subjects</button>
     <div class="daily-form">
       <div class="field">
         <label>Date</label>
@@ -242,10 +244,14 @@ const PALETTE = [
 const uid = () => Math.random().toString(36).slice(2, 10);
 function todayStr(){ return new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}); }
 
-let state = { subjects: [], selectedId: null, dailyLog: [] };
+let state = { subjects: [], selectedId: null, dailyLog: [], currentView: "subjects" };
 let syncUrl = localStorage.getItem("studyLedgerSyncUrl") || CONFIG.SYNC_URL || "";
 let pushTimer = null;
 let syncState = "off"; // off | saving | saved | error
+
+function collapseAllChapters(){
+  state.subjects.forEach(s => s.chapters.forEach(c => { c._open = false; }));
+}
 
 function loadLocal(){
   try{
@@ -253,7 +259,9 @@ function loadLocal(){
     if(raw) state = Object.assign(state, JSON.parse(raw));
   }catch(e){ console.error("Local load failed", e); }
   if(!Array.isArray(state.dailyLog)) state.dailyLog = [];
+  if(!state.currentView) state.currentView = "subjects";
   if(!state.selectedId && state.subjects.length) state.selectedId = state.subjects[0].id;
+  collapseAllChapters();
 }
 function saveLocalOnly(){
   localStorage.setItem("studyLedgerData", JSON.stringify(state));
@@ -264,6 +272,8 @@ function renderUI(){
   renderTabs();
   renderSubjectPane();
   renderDailyLog();
+  document.getElementById("subjectPane").style.display = state.currentView === "daily" ? "none" : "block";
+  document.querySelector(".daily-section").style.display = state.currentView === "daily" ? "block" : "none";
   saveLocalOnly();
 }
 
@@ -314,6 +324,7 @@ async function pullFromScript(){
     if(data && Array.isArray(data.subjects) && data.subjects.length && state.subjects.length === 0){
       state.subjects = data.subjects;
       state.selectedId = state.subjects.length ? state.subjects[0].id : null;
+      collapseAllChapters();
     }
     if(data && Array.isArray(data.dailyLog) && data.dailyLog.length && state.dailyLog.length === 0){
       state.dailyLog = data.dailyLog;
@@ -334,10 +345,10 @@ function renderTabs(){
   state.subjects.forEach((s, idx) => {
     const c = PALETTE[idx % PALETTE.length];
     const tab = document.createElement("div");
-    tab.className = "tab" + (s.id === state.selectedId ? " active" : "");
-    if(s.id === state.selectedId) tab.style.background = c.tint;
+    tab.className = "tab" + (state.currentView === "subjects" && s.id === state.selectedId ? " active" : "");
+    if(state.currentView === "subjects" && s.id === state.selectedId) tab.style.background = c.tint;
     tab.innerHTML = `<span class="dot" style="background:${c.main}"></span>${escapeHtml(s.name)}`;
-    tab.onclick = () => { state.selectedId = s.id; render(); };
+    tab.onclick = () => { state.selectedId = s.id; state.currentView = "subjects"; render(); };
     el.appendChild(tab);
   });
   const addBtn = document.createElement("button");
@@ -345,6 +356,14 @@ function renderTabs(){
   addBtn.textContent = "+ subject";
   addBtn.onclick = addSubject;
   el.appendChild(addBtn);
+
+  const dailyTab = document.createElement("div");
+  dailyTab.className = "tab daily-tab" + (state.currentView === "daily" ? " active" : "");
+  dailyTab.style.marginLeft = "auto";
+  if(state.currentView === "daily") dailyTab.style.background = "var(--navy-tint)";
+  dailyTab.innerHTML = `<span class="dot" style="background:var(--navy)"></span>📅 Daily tracker`;
+  dailyTab.onclick = () => { state.currentView = "daily"; render(); };
+  el.appendChild(dailyTab);
 }
 
 function renderSubjectPane(){
@@ -604,7 +623,7 @@ function renderTally(count){
       const line = document.createElementNS("http://www.w3.org/2000/svg","line");
       line.setAttribute("x1", 2+i*4.2); line.setAttribute("y1",1);
       line.setAttribute("x2", 2+i*4.2); line.setAttribute("y2",15);
-      line.setAttribute("stroke","#20291F"); line.setAttribute("stroke-width","1.6"); line.setAttribute("stroke-linecap","round");
+      line.setAttribute("stroke","#000000"); line.setAttribute("stroke-width","1.6"); line.setAttribute("stroke-linecap","round");
       svg.appendChild(line);
     }
     if(n === 5){
@@ -719,6 +738,8 @@ document.getElementById("addDailyBtn").onclick = () => {
   dateInput.value = ""; hoursInput.value = ""; summaryInput.value = "";
   render();
 };
+
+document.getElementById("backToSubjects").onclick = () => { state.currentView = "subjects"; render(); };
 
 loadLocal();
 renderUI();
