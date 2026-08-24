@@ -259,12 +259,16 @@ function saveLocalOnly(){
   localStorage.setItem("studyLedgerData", JSON.stringify(state));
 }
 
-function render(){
+function renderUI(){
   renderSyncStatus();
   renderTabs();
   renderSubjectPane();
   renderDailyLog();
   saveLocalOnly();
+}
+
+function render(){
+  renderUI();
   scheduleRemoteSave();
 }
 
@@ -648,7 +652,7 @@ document.getElementById("saveUrlBtn").onclick = () => {
   syncUrl = document.getElementById("syncUrlInput").value.trim();
   localStorage.setItem("studyLedgerSyncUrl", syncUrl);
   document.getElementById("settingsOverlay").classList.remove("show");
-  if(syncUrl){ pullFromScript(); scheduleRemoteSave(); } else { setSyncState("off"); }
+  if(syncUrl){ pullFromScript(); } else { setSyncState("off"); }
 };
 document.getElementById("testBtn").onclick = async () => {
   const url = document.getElementById("syncUrlInput").value.trim();
@@ -710,8 +714,8 @@ document.getElementById("addDailyBtn").onclick = () => {
 };
 
 loadLocal();
-render();
-if(syncUrl) pullFromScript();
+renderUI();
+if(syncUrl){ pullFromScript(); } else { setSyncState("off"); }
 </script>
 </body>
 </html>
