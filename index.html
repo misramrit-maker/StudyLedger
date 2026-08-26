@@ -121,8 +121,15 @@
   .class-info label{display:block;font-family:var(--mono);font-size:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;}
   .class-info input{width:100%;padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;font-family:var(--sans);background:var(--paper);color:var(--ink);outline:none;box-sizing:border-box;}
   .class-info input:focus{border-color:var(--plum);}
-  textarea.taught{width:100%;min-height:44px;font-family:var(--sans);font-size:13.5px;line-height:1.5;color:var(--ink);border:1.5px solid var(--line);border-radius:10px;background:var(--paper);outline:none;resize:vertical;padding:8px 10px;box-sizing:border-box;}
+  textarea.taught{width:100%;min-height:40px;font-family:var(--sans);font-size:13.5px;line-height:1.5;color:var(--ink);border:1.5px solid var(--line);border-radius:10px;background:var(--paper);outline:none;resize:vertical;padding:8px 10px;box-sizing:border-box;}
   textarea.taught:focus{border-color:var(--plum);}
+  .taught-list{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
+  .taught-row{display:flex;align-items:flex-start;gap:8px;padding:7px 10px;background:var(--paper);border:1px solid var(--line);border-radius:8px;}
+  .taught-bullet{width:5px;height:5px;border-radius:50%;background:var(--plum);flex-shrink:0;margin-top:7px;}
+  .taught-text{flex:1;font-size:13px;line-height:1.45;color:var(--ink-soft);}
+  .taught-remove{border:none;background:none;color:var(--ink-faint);cursor:pointer;font-size:14px;line-height:1;padding:0;flex-shrink:0;}
+  .taught-remove:hover{color:var(--danger);}
+  .taught-toggle-btn{font-family:var(--mono);font-size:10.5px;color:var(--plum);background:none;border:none;cursor:pointer;text-decoration:underline;padding:0;}
 
   .overlay{position:fixed;inset:0;background:rgba(32,41,31,0.45);display:none;align-items:center;justify-content:center;padding:20px;z-index:50;}
   .overlay.show{display:flex;}
@@ -434,6 +441,11 @@ function renderSubjectPane(){
 }
 
 function renderChapter(subject, ch, color){
+  if(ch.taughtPoints === undefined){
+    ch.taughtPoints = ch.taught ? String(ch.taught).split("\n").map(s => s.trim()).filter(Boolean) : [];
+  }
+  if(ch._taughtOpen === undefined) ch._taughtOpen = true;
+
   const wrap = document.createElement("div");
   wrap.className = "chapter";
   wrap.style.borderLeft = `5px solid ${color.main}`;
@@ -466,6 +478,7 @@ function renderChapter(subject, ch, color){
     const bits = [];
     if(ch.confidence) bits.push(["😬","😅","🙂","💪","🌟"][ch.confidence-1]);
     if(ch.revisions.length) bits.push(`${ch.revisions.length} revised`);
+    if(ch.taughtPoints.length) bits.push(`${ch.taughtPoints.length} taught pt${ch.taughtPoints.length===1?"":"s"}`);
     hint.textContent = bits.join(" · ");
     top.appendChild(hint);
   }
@@ -511,6 +524,7 @@ function renderChapter(subject, ch, color){
     if(ch.taught === undefined) ch.taught = "";
 
     const classInfo = document.createElement("div");
+
     classInfo.className = "class-info";
     classInfo.innerHTML = `
       <div class="field">
@@ -525,17 +539,77 @@ function renderChapter(subject, ch, color){
     classInfo.querySelector(`#teacherInput-${ch.id}`).oninput = (e) => { ch.teacher = e.target.value; saveLocalOnly(); scheduleRemoteSave(); };
     classInfo.querySelector(`#dateInput-${ch.id}`).oninput = (e) => { ch.classDate = e.target.value; saveLocalOnly(); scheduleRemoteSave(); };
 
+    const taughtLabelRow = document.createElement("div");
+    taughtLabelRow.style.display = "flex";
+    taughtLabelRow.style.alignItems = "center";
+    taughtLabelRow.style.justifyContent = "space-between";
+    taughtLabelRow.style.marginBottom = "6px";
+
     const taughtLabel = document.createElement("div");
     taughtLabel.className = "section-label";
+    taughtLabel.style.marginBottom = "0";
     taughtLabel.textContent = "what was taught in class";
-    body.appendChild(taughtLabel);
+    taughtLabelRow.appendChild(taughtLabel);
+
+    if(ch.taughtPoints.length){
+      const taughtToggle = document.createElement("button");
+      taughtToggle.type = "button";
+      taughtToggle.className = "taught-toggle-btn";
+      taughtToggle.textContent = ch._taughtOpen ? "hide points" : `show ${ch.taughtPoints.length} point${ch.taughtPoints.length===1?"":"s"}`;
+      taughtToggle.onclick = () => { ch._taughtOpen = !ch._taughtOpen; render(); };
+      taughtLabelRow.appendChild(taughtToggle);
+    }
+    body.appendChild(taughtLabelRow);
 
     const taughtBox = document.createElement("textarea");
     taughtBox.className = "taught";
-    taughtBox.placeholder = "e.g. covered the first two sections, worked through example problems...";
-    taughtBox.value = ch.taught;
-    taughtBox.oninput = (e) => { ch.taught = e.target.value; saveLocalOnly(); scheduleRemoteSave(); };
+    taughtBox.rows = 1;
+    taughtBox.placeholder = "type what was covered, press Enter to add it as a point...";
+    taughtBox.value = "";
+    taughtBox.addEventListener("keydown", (e) => {
+      if(e.key === "Enter" && !e.shiftKey){
+        e.preventDefault();
+        const v = taughtBox.value.trim();
+        if(!v) return;
+        ch.taughtPoints.push(v);
+        ch.taught = ch.taughtPoints.join(" | ");
+        ch._taughtOpen = true;
+        saveLocalOnly();
+        scheduleRemoteSave();
+        render();
+      }
+    });
     body.appendChild(taughtBox);
+
+    if(ch.taughtPoints.length && ch._taughtOpen){
+      const taughtList = document.createElement("div");
+      taughtList.className = "taught-list";
+      ch.taughtPoints.forEach((point, i) => {
+        const row = document.createElement("div");
+        row.className = "taught-row";
+        const bullet = document.createElement("span");
+        bullet.className = "taught-bullet";
+        const text = document.createElement("span");
+        text.className = "taught-text";
+        text.textContent = point;
+        const rm = document.createElement("button");
+        rm.className = "taught-remove";
+        rm.innerHTML = "&times;";
+        rm.title = "Remove this point";
+        rm.onclick = () => {
+          ch.taughtPoints.splice(i, 1);
+          ch.taught = ch.taughtPoints.join(" | ");
+          saveLocalOnly();
+          scheduleRemoteSave();
+          render();
+        };
+        row.appendChild(bullet);
+        row.appendChild(text);
+        row.appendChild(rm);
+        taughtList.appendChild(row);
+      });
+      body.appendChild(taughtList);
+    }
 
     const conceptsLabel = document.createElement("div");
     conceptsLabel.className = "section-label";
@@ -686,7 +760,7 @@ function removeSubject(id){
   render();
 }
 function addChapter(subject){
-  subject.chapters.push({ id: uid(), name: "New chapter", concepts: [], formulae: [], notes: "", confidence: 0, revisions: [], teacher: "", classDate: "", taught: "", _open: false });
+  subject.chapters.push({ id: uid(), name: "New chapter", concepts: [], formulae: [], notes: "", confidence: 0, revisions: [], teacher: "", classDate: "", taught: "", taughtPoints: [], _open: false, _taughtOpen: true });
   render();
 }
 
