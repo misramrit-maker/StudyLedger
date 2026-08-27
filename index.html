@@ -346,6 +346,7 @@ let pushTimer = null;
 let syncState = "off"; // off | saving | saved | error | offline
 let isPushing = false;
 let isPulling = false;
+let verifyFailCount = 0;
 let pushQueued = false;
 let pushAttempt = 0;
 let localVersion = 0; // bumped on every real data edit, so an in-flight pull can detect it's now stale
@@ -483,6 +484,20 @@ async function fetchWithRetry(url, options, { retries = 3, timeoutMs = 15000, on
   throw lastErr;
 }
 
+async function verifyPushLanded_(sentBody, versionAtStart){
+  // no-cors responses are unreadable, so a resolved push isn't proof it actually saved server-side —
+  // read it back with a real (CORS-safe) GET and check it byte-matches what we sent.
+  await sleep(4000); // give Apps Script time to actually finish the write before checking
+  if(localVersion !== versionAtStart) return true; // a newer edit happened meanwhile; that push will verify itself
+  try{
+    const res = await fetchWithRetry(syncUrl, { method: "GET" }, { retries: 1, timeoutMs: 20000 });
+    const text = await res.text();
+    return text.trim() === sentBody.trim();
+  }catch(e){
+    return false;
+  }
+}
+
 async function pushToScript(){
   if(!syncUrl) return;
   if(isPushing){ pushQueued = true; return; }
@@ -501,14 +516,32 @@ async function pushToScript(){
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body
     }, { retries: 2, timeoutMs: 25000, onAttempt: (a) => { pushAttempt = a; setSyncState("saving"); } });
-    // Only clear the pending flag if no further edits happened while this push was in flight —
-    // otherwise those newer edits still need a push of their own.
-    if(localVersion === versionAtPushStart) markPendingPush(false);
-    // Apps Script can take a while to actually finish writing to the Sheet after this resolves,
-    // so hold off on any background pull for a bit — otherwise a too-early check can fetch the
-    // not-yet-updated sheet and overwrite the change we just made with stale data.
-    lastPushCompletedAt = Date.now();
-    setSyncState("saved");
+
+    const landed = await verifyPushLanded_(body, versionAtPushStart);
+    if(landed){
+      verifyFailCount = 0;
+      // Only clear the pending flag if no further edits happened while this push was in flight —
+      // otherwise those newer edits still need a push of their own.
+      if(localVersion === versionAtPushStart) markPendingPush(false);
+      // Apps Script can take a while to actually finish writing to the Sheet after this resolves,
+      // so hold off on any background pull for a bit — otherwise a too-early check can fetch the
+      // not-yet-updated sheet and overwrite the change we just made with stale data.
+      lastPushCompletedAt = Date.now();
+      setSyncState("saved");
+    } else {
+      verifyFailCount++;
+      if(verifyFailCount < 3){
+        // The request went out, but we couldn't confirm it actually landed on the sheet — don't mark
+        // it saved, and keep the pending flag set so this gets retried instead of silently lost.
+        setSyncState("error", "couldn't confirm the save reached Drive — retrying");
+        pushQueued = true;
+      } else {
+        // Failed to verify several times in a row — stop hammering it and surface a clear, persistent
+        // error instead of looping silently. The pending flag stays set so nothing here is lost;
+        // use Settings → Force refresh, or check the Apps Script Executions log, to see what's wrong.
+        setSyncState("error", "save keeps failing to verify — check Apps Script Executions log");
+      }
+    }
   }catch(e){
     console.error("Push failed", e);
     if(e.message === "offline"){ setSyncState("offline"); pushQueued = true; }
