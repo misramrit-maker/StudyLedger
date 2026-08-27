@@ -289,6 +289,7 @@
     <p>Paste the Web app URL from your Google Apps Script deployment (see <code>apps-script.gs</code> in the repo for the one-time setup). Once set, every change here saves automatically — no sign-in needed.</p>
     <input id="syncUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
     <div class="test-result" id="testResult"></div>
+    <button id="forceRefreshBtn" style="width:100%;margin-top:4px;padding:10px;border-radius:8px;border:1.5px dashed var(--ink-faint);background:transparent;font-family:var(--mono);font-size:12px;color:var(--ink-soft);cursor:pointer;">&#8635; Force refresh from Drive (discard anything unsaved on this device)</button>
     <div class="modal-actions">
       <button id="closeSettings">Close</button>
       <button id="testBtn">Test connection</button>
@@ -1041,6 +1042,18 @@ document.getElementById("testBtn").onclick = async () => {
     result.textContent = "Couldn't connect: " + e.message;
     result.className = "test-result err";
   }
+};
+
+document.getElementById("forceRefreshBtn").onclick = async () => {
+  const result = document.getElementById("testResult");
+  if(!syncUrl){ result.textContent = "Set up a sync URL first."; result.className = "test-result err"; return; }
+  if(!confirm("This throws away anything on this device that hasn't been confirmed as saved to Drive, and replaces it with whatever's actually in the spreadsheet right now. Continue?")) return;
+  markPendingPush(false); // clear any stuck flag so this pull can't be skipped or overridden by a push
+  result.textContent = "Refreshing from Drive...";
+  result.className = "test-result";
+  await pullFromScript();
+  result.textContent = syncState === "saved" ? "Refreshed from Drive." : "Couldn't refresh — check the sync status above.";
+  result.className = syncState === "saved" ? "test-result ok" : "test-result err";
 };
 
 function renderDailyLog(){
