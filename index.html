@@ -346,6 +346,7 @@ let syncState = "off"; // off | saving | saved | error | offline
 let isPushing = false;
 let pushQueued = false;
 let pushAttempt = 0;
+let localVersion = 0; // bumped on every real data edit, so an in-flight pull can detect it's now stale
 
 function collapseAllChapters(){
   state.subjects.forEach(s => s.chapters.forEach(c => { c._open = false; }));
@@ -376,6 +377,7 @@ function renderUI(){
 }
 
 function render(){
+  localVersion++;
   renderUI();
   scheduleRemoteSave();
 }
@@ -500,9 +502,17 @@ async function pushToScript(){
 async function pullFromScript(){
   if(!syncUrl) return;
   if(!navigator.onLine){ setSyncState("offline"); return; }
+  const versionAtStart = localVersion;
   try{
     const res = await fetchWithRetry(syncUrl, { method: "GET" }, { retries: 1, timeoutMs: 25000 });
     const data = await safeJson(res);
+    if(localVersion !== versionAtStart){
+      // You made an edit while this pull was in flight — local is now newer than what we just fetched.
+      // Discard the pulled data and push your edit instead, rather than overwriting it.
+      setSyncState("saved");
+      scheduleRemoteSave();
+      return;
+    }
     if(data && Array.isArray(data.subjects)){
       // Keep the current selection if it still exists after the pull; otherwise leave subjects closed.
       const keepId = state.subjects.find(s => s.id === state.selectedId) ? state.selectedId : null;
