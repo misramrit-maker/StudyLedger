@@ -603,14 +603,45 @@ async function pullFromScript(){
   }
 }
 
-function syncOnStartup(){
-  if(!syncUrl){ setSyncState("off"); return Promise.resolve(); }
-  if(pendingPush){
-    // Local has edits Drive never confirmed (e.g. a refresh happened before the last push finished) —
-    // push those up first instead of pulling, so a stale remote copy can't overwrite them.
-    return pushToScript();
-  } else {
+async function syncOnStartup(){
+  if(!syncUrl){ setSyncState("off"); return; }
+  if(!pendingPush){
     return pullFromScript();
+  }
+  // This device has local edits Drive never confirmed as saved (e.g. a refresh happened before the
+  // last push finished). Blindly pushing them could overwrite something newer that landed on Drive
+  // in the meantime (from another device) — so check what's actually there first, and only push
+  // without asking if it turns out there's nothing at risk.
+  try{
+    const res = await fetchWithRetry(syncUrl, { method: "GET" }, { retries: 1, timeoutMs: 25000 });
+    const text = await res.text();
+    const localBody = JSON.stringify({ subjects: state.subjects, dailyLog: state.dailyLog });
+    if(text.trim() === localBody.trim()){
+      // Drive already matches this device exactly — nothing to push, nothing at risk.
+      markPendingPush(false);
+      setSyncState("saved");
+      return;
+    }
+    let remoteData = null;
+    try{ remoteData = JSON.parse(text); }catch(e){ /* leave null */ }
+    const remoteCount = remoteData && Array.isArray(remoteData.subjects) ? remoteData.subjects.length : "an unknown number of";
+    const localCount = state.subjects.length;
+    const keepLocal = confirm(
+      "This device has changes Drive never confirmed as saved.\n\n" +
+      "This device currently shows " + localCount + " subject(s).\n" +
+      "Drive currently has " + remoteCount + " subject(s).\n\n" +
+      "Press OK to save THIS device's version to Drive.\n" +
+      "Press Cancel to discard this device's version and use Drive's instead."
+    );
+    if(keepLocal){
+      return pushToScript();
+    } else {
+      markPendingPush(false);
+      return pullFromScript();
+    }
+  }catch(e){
+    console.error("Startup conflict check failed", e);
+    return pushToScript(); // fall back to the old behavior if we can't even check
   }
 }
 
