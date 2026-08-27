@@ -349,6 +349,8 @@ let pushQueued = false;
 let pushAttempt = 0;
 let localVersion = 0; // bumped on every real data edit, so an in-flight pull can detect it's now stale
 let pendingPush = localStorage.getItem("studyLedgerPendingPush") === "1"; // survives a refresh
+let lastPushCompletedAt = 0;
+const PULL_COOLDOWN_MS = 8000; // give Apps Script time to actually finish writing before we check
 
 function collapseAllChapters(){
   state.subjects.forEach(s => s.chapters.forEach(c => { c._open = false; }));
@@ -491,8 +493,7 @@ async function pushToScript(){
   try{
     // Apps Script's POST responses don't reliably carry an Access-Control-Allow-Origin header,
     // which makes the browser block reading them even though the write itself succeeds server-side.
-    // no-cors sends the request and lets it execute without trying to read the (blocked) response —
-    // we confirm it actually landed with a follow-up pull instead.
+    // no-cors sends the request and lets it execute without trying to read the (blocked) response.
     await fetchWithRetry(syncUrl, {
       method: "POST",
       mode: "no-cors",
@@ -502,9 +503,11 @@ async function pushToScript(){
     // Only clear the pending flag if no further edits happened while this push was in flight —
     // otherwise those newer edits still need a push of their own.
     if(localVersion === versionAtPushStart) markPendingPush(false);
+    // Apps Script can take a while to actually finish writing to the Sheet after this resolves,
+    // so hold off on any background pull for a bit — otherwise a too-early check can fetch the
+    // not-yet-updated sheet and overwrite the change we just made with stale data.
+    lastPushCompletedAt = Date.now();
     setSyncState("saved");
-    // Opaque no-cors responses can't be inspected, so verify shortly after with a real (CORS-safe) GET.
-    setTimeout(() => { if(!isPushing && !pendingPush) pullFromScript(); }, 1500);
   }catch(e){
     console.error("Push failed", e);
     if(e.message === "offline"){ setSyncState("offline"); pushQueued = true; }
@@ -578,15 +581,15 @@ function syncOnStartup(){
 
 // Cross-device updates don't show up on their own — the app only fetches Drive's latest on load.
 // Catch up whenever you come back to the tab, plus a periodic background check while it stays open.
+function canAutoPull(){
+  return syncUrl && !pendingPush && !isPushing && !isPulling && navigator.onLine
+    && (Date.now() - lastPushCompletedAt > PULL_COOLDOWN_MS);
+}
 document.addEventListener("visibilitychange", () => {
-  if(document.visibilityState === "visible" && syncUrl && !pendingPush && !isPushing && !isPulling){
-    pullFromScript();
-  }
+  if(document.visibilityState === "visible" && canAutoPull()) pullFromScript();
 });
 setInterval(() => {
-  if(syncUrl && !pendingPush && !isPushing && !isPulling && navigator.onLine){
-    pullFromScript();
-  }
+  if(canAutoPull()) pullFromScript();
 }, 90000);
 
 
