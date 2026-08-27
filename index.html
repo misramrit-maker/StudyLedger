@@ -254,6 +254,7 @@
 
   <div class="tabs" id="tabs"></div>
 
+  <div class="sync-loading" id="syncLoading" style="display:none;padding:30px 10px;text-align:center;color:var(--ink-faint);font-size:13px;font-family:var(--mono);">Checking Drive for the latest data...</div>
   <div id="subjectPane"></div>
 
   <div class="daily-section">
@@ -603,13 +604,13 @@ async function pullFromScript(){
 }
 
 function syncOnStartup(){
-  if(!syncUrl){ setSyncState("off"); return; }
+  if(!syncUrl){ setSyncState("off"); return Promise.resolve(); }
   if(pendingPush){
     // Local has edits Drive never confirmed (e.g. a refresh happened before the last push finished) —
     // push those up first instead of pulling, so a stale remote copy can't overwrite them.
-    pushToScript();
+    return pushToScript();
   } else {
-    pullFromScript();
+    return pullFromScript();
   }
 }
 
@@ -1226,9 +1227,19 @@ document.addEventListener("visibilitychange", () => {
 });
 
 loadLocal();
-renderUI();
 renderDailyTidbit();
-syncOnStartup();
+if(syncUrl){
+  // Don't paint local storage's (possibly stale) data first — wait for the real sync to settle,
+  // so you never see a flash of something that then gets corrected/removed a moment later.
+  document.getElementById("syncLoading").style.display = "block";
+  syncOnStartup().catch(e => console.error("Startup sync failed", e)).finally(() => {
+    document.getElementById("syncLoading").style.display = "none";
+    renderUI();
+  });
+} else {
+  setSyncState("off");
+  renderUI();
+}
 </script>
 </body>
 </html>
