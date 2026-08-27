@@ -439,13 +439,16 @@ async function safeJson(res){
 }
 
 async function fetchWithTimeout(url, options, timeoutMs){
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  // Deliberately not using AbortController/AbortSignal here: some browser extensions that intercept
+  // fetch calls (e.g. network loggers) try to relay the request options elsewhere via postMessage,
+  // and AbortSignal isn't structured-cloneable, which crashes that relay with a DataCloneError.
+  // A plain timeout race avoids handing out a signal object at all.
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error("Request timed out — the connection may be slow or unavailable.")), timeoutMs);
+  });
   try{
-    return await fetch(url, { ...options, signal: controller.signal });
-  }catch(e){
-    if(e.name === "AbortError") throw new Error("Request timed out — the connection may be slow or unavailable.");
-    throw e;
+    return await Promise.race([fetch(url, options), timeout]);
   }finally{
     clearTimeout(timer);
   }
@@ -486,17 +489,22 @@ async function pushToScript(){
   const versionAtPushStart = localVersion;
   const body = JSON.stringify({ subjects: state.subjects, dailyLog: state.dailyLog });
   try{
-    const res = await fetchWithRetry(syncUrl, {
+    // Apps Script's POST responses don't reliably carry an Access-Control-Allow-Origin header,
+    // which makes the browser block reading them even though the write itself succeeds server-side.
+    // no-cors sends the request and lets it execute without trying to read the (blocked) response —
+    // we confirm it actually landed with a follow-up pull instead.
+    await fetchWithRetry(syncUrl, {
       method: "POST",
+      mode: "no-cors",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body
     }, { retries: 2, timeoutMs: 25000, onAttempt: (a) => { pushAttempt = a; setSyncState("saving"); } });
-    const data = await safeJson(res);
-    if(data && data.ok === false){ throw new Error(data.error || "Apps Script reported an error."); }
     // Only clear the pending flag if no further edits happened while this push was in flight —
     // otherwise those newer edits still need a push of their own.
     if(localVersion === versionAtPushStart) markPendingPush(false);
     setSyncState("saved");
+    // Opaque no-cors responses can't be inspected, so verify shortly after with a real (CORS-safe) GET.
+    setTimeout(() => { if(!isPushing && !pendingPush) pullFromScript(); }, 1500);
   }catch(e){
     console.error("Push failed", e);
     if(e.message === "offline"){ setSyncState("offline"); pushQueued = true; }
