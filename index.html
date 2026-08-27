@@ -347,6 +347,7 @@ let isPushing = false;
 let pushQueued = false;
 let pushAttempt = 0;
 let localVersion = 0; // bumped on every real data edit, so an in-flight pull can detect it's now stale
+let pendingPush = localStorage.getItem("studyLedgerPendingPush") === "1"; // survives a refresh
 
 function collapseAllChapters(){
   state.subjects.forEach(s => s.chapters.forEach(c => { c._open = false; }));
@@ -387,8 +388,14 @@ function renderLocal(){
   renderUI();
 }
 
+function markPendingPush(v){
+  pendingPush = v;
+  localStorage.setItem("studyLedgerPendingPush", v ? "1" : "0");
+}
+
 function scheduleRemoteSave(){
   if(!syncUrl) { setSyncState("off"); return; }
+  markPendingPush(true); // recorded synchronously — safe even if the tab is closed before the debounce fires
   if(!navigator.onLine){ setSyncState("offline"); pushQueued = true; return; }
   setSyncState("saving");
   clearTimeout(pushTimer);
@@ -475,6 +482,7 @@ async function pushToScript(){
   if(!navigator.onLine){ setSyncState("offline"); pushQueued = true; return; }
   isPushing = true;
   pushAttempt = 0;
+  const versionAtPushStart = localVersion;
   const body = JSON.stringify({ subjects: state.subjects, dailyLog: state.dailyLog });
   try{
     const res = await fetchWithRetry(syncUrl, {
@@ -484,6 +492,9 @@ async function pushToScript(){
     }, { retries: 2, timeoutMs: 25000, onAttempt: (a) => { pushAttempt = a; setSyncState("saving"); } });
     const data = await safeJson(res);
     if(data && data.ok === false){ throw new Error(data.error || "Apps Script reported an error."); }
+    // Only clear the pending flag if no further edits happened while this push was in flight —
+    // otherwise those newer edits still need a push of their own.
+    if(localVersion === versionAtPushStart) markPendingPush(false);
     setSyncState("saved");
   }catch(e){
     console.error("Push failed", e);
@@ -530,6 +541,17 @@ async function pullFromScript(){
   }catch(e){
     console.error("Pull failed", e);
     setSyncState("error", e.message);
+  }
+}
+
+function syncOnStartup(){
+  if(!syncUrl){ setSyncState("off"); return; }
+  if(pendingPush){
+    // Local has edits Drive never confirmed (e.g. a refresh happened before the last push finished) —
+    // push those up first instead of pulling, so a stale remote copy can't overwrite them.
+    pushToScript();
+  } else {
+    pullFromScript();
   }
 }
 
@@ -963,7 +985,7 @@ document.getElementById("saveUrlBtn").onclick = () => {
   syncUrl = document.getElementById("syncUrlInput").value.trim();
   localStorage.setItem("studyLedgerSyncUrl", syncUrl);
   document.getElementById("settingsOverlay").classList.remove("show");
-  if(syncUrl){ pullFromScript(); } else { setSyncState("off"); }
+  if(syncUrl){ syncOnStartup(); } else { setSyncState("off"); }
 };
 document.getElementById("testBtn").onclick = async () => {
   const url = document.getElementById("syncUrlInput").value.trim();
@@ -1122,7 +1144,7 @@ document.addEventListener("visibilitychange", () => {
 loadLocal();
 renderUI();
 renderDailyTidbit();
-if(syncUrl){ pullFromScript(); } else { setSyncState("off"); }
+syncOnStartup();
 </script>
 </body>
 </html>
