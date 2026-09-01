@@ -151,8 +151,14 @@
   .section-label{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;}
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
   .chip{font-size:12.5px;padding:3px 9px;border-radius:20px;display:inline-flex;align-items:center;gap:6px;}
-  .chip span{cursor:pointer;font-weight:700;}
-  .chip-input{font-size:12.5px;border:1px dashed var(--line);border-radius:20px;padding:3px 10px;background:transparent;outline:none;min-width:150px;}
+  .chip .chip-text{cursor:text;}
+  .chip .chip-text:hover{text-decoration:underline dotted;}
+  .chip span.chip-x{cursor:pointer;font-weight:700;}
+  .chip-input{font-size:12.5px;border:1px dashed var(--line);border-radius:20px;padding:3px 10px;background:transparent;outline:none;min-width:150px;flex:1;}
+  .chip-edit-input{font-size:12.5px;border:none;outline:none;background:transparent;color:inherit;font-family:inherit;font-weight:inherit;padding:0;width:auto;min-width:30px;}
+  .chip-add-row{display:flex;align-items:center;gap:6px;flex:1;min-width:150px;}
+  .chip-add-btn{flex-shrink:0;border:1.5px solid var(--line);background:var(--card);border-radius:20px;width:24px;height:24px;line-height:1;font-size:15px;font-weight:700;color:var(--ink-faint);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+  .chip-add-btn:hover{background:var(--paper-alt);color:var(--ink);}
   .formula-chip{font-family:var(--mono);font-weight:700;border-radius:8px;}
   .formula-input{font-family:var(--mono);border-radius:8px;}
   textarea.notes{width:100%;min-height:56px;font-family:var(--sans);font-size:14px;line-height:1.5;color:var(--ink);border:none;border-top:1px dashed var(--line);background:transparent;outline:none;resize:vertical;padding:8px 0 0 0;}
@@ -183,10 +189,16 @@
   .taught-list{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
   .taught-row{display:flex;align-items:flex-start;gap:8px;padding:7px 10px;background:var(--paper);border:1px solid var(--line);border-radius:8px;}
   .taught-bullet{width:5px;height:5px;border-radius:50%;background:var(--plum);flex-shrink:0;margin-top:7px;}
-  .taught-text{flex:1;font-size:13px;line-height:1.45;color:var(--ink-soft);}
+  .taught-text{flex:1;font-size:13px;line-height:1.45;color:var(--ink-soft);cursor:text;}
+  .taught-text:hover{text-decoration:underline dotted;}
+  .taught-edit-input{flex:1;font-size:13px;line-height:1.45;color:var(--ink-soft);font-family:var(--sans);border:none;outline:none;background:transparent;padding:0;resize:vertical;min-height:19px;}
   .taught-remove{border:none;background:none;color:var(--ink-faint);cursor:pointer;font-size:14px;line-height:1;padding:0;flex-shrink:0;}
   .taught-remove:hover{color:var(--danger);}
   .taught-toggle-btn{font-family:var(--mono);font-size:10.5px;color:var(--plum);background:none;border:none;cursor:pointer;text-decoration:underline;padding:0;}
+  .taught-add-row{display:flex;align-items:flex-start;gap:8px;}
+  .taught-add-row textarea.taught{flex:1;}
+  .taught-add-btn{flex-shrink:0;margin-top:2px;border:1.5px solid var(--line);background:var(--card);border-radius:8px;width:34px;height:34px;font-size:16px;font-weight:700;color:var(--ink-faint);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+  .taught-add-btn:hover{background:var(--paper-alt);color:var(--ink);}
 
   .overlay{position:fixed;inset:0;background:rgba(32,41,31,0.45);display:none;align-items:center;justify-content:center;padding:20px;z-index:50;}
   .overlay.show{display:flex;}
@@ -873,25 +885,44 @@ function renderChapter(subject, ch, color){
     }
     body.appendChild(taughtLabelRow);
 
+    const taughtAddRow = document.createElement("div");
+    taughtAddRow.className = "taught-add-row";
+
     const taughtBox = document.createElement("textarea");
     taughtBox.className = "taught";
     taughtBox.rows = 1;
-    taughtBox.placeholder = "type what was covered, press Enter to add it as a point...";
-    taughtBox.value = "";
+    taughtBox.placeholder = "type what was covered, press Enter or tap + to add it as a point...";
+    // Restore whatever was typed but not yet added, so a background refresh doesn't wipe it.
+    taughtBox.value = ch._taughtDraft || "";
+    taughtBox.oninput = (e) => { ch._taughtDraft = e.target.value; saveLocalOnly(); };
+    const commitTaught = () => {
+      const v = taughtBox.value.trim();
+      if(!v) return;
+      ch.taughtPoints.push(v);
+      ch.taught = ch.taughtPoints.join(" | ");
+      ch._taughtOpen = true;
+      ch._taughtDraft = "";
+      saveLocalOnly();
+      scheduleRemoteSave();
+      render();
+    };
     taughtBox.addEventListener("keydown", (e) => {
       if(e.key === "Enter" && !e.shiftKey){
         e.preventDefault();
-        const v = taughtBox.value.trim();
-        if(!v) return;
-        ch.taughtPoints.push(v);
-        ch.taught = ch.taughtPoints.join(" | ");
-        ch._taughtOpen = true;
-        saveLocalOnly();
-        scheduleRemoteSave();
-        render();
+        commitTaught();
       }
     });
-    body.appendChild(taughtBox);
+    taughtAddRow.appendChild(taughtBox);
+
+    const taughtAddBtn = document.createElement("button");
+    taughtAddBtn.type = "button";
+    taughtAddBtn.className = "taught-add-btn";
+    taughtAddBtn.title = "Add this point";
+    taughtAddBtn.textContent = "+";
+    taughtAddBtn.onclick = commitTaught;
+    taughtAddRow.appendChild(taughtAddBtn);
+
+    body.appendChild(taughtAddRow);
 
     if(ch.taughtPoints.length && ch._taughtOpen){
       const taughtList = document.createElement("div");
@@ -901,9 +932,40 @@ function renderChapter(subject, ch, color){
         row.className = "taught-row";
         const bullet = document.createElement("span");
         bullet.className = "taught-bullet";
+        row.appendChild(bullet);
+
         const text = document.createElement("span");
         text.className = "taught-text";
         text.textContent = point;
+        text.title = "Click to edit";
+        text.onclick = () => {
+          const editBox = document.createElement("textarea");
+          editBox.className = "taught-edit-input";
+          editBox.rows = 1;
+          editBox.value = point;
+          const finishEdit = (commit) => {
+            if(commit){
+              const v = editBox.value.trim();
+              if(v){
+                ch.taughtPoints[i] = v;
+                ch.taught = ch.taughtPoints.join(" | ");
+                saveLocalOnly();
+                scheduleRemoteSave();
+              }
+            }
+            render();
+          };
+          editBox.addEventListener("keydown", (e) => {
+            if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); finishEdit(true); }
+            else if(e.key === "Escape"){ e.preventDefault(); finishEdit(false); }
+          });
+          editBox.addEventListener("blur", () => finishEdit(true));
+          row.replaceChild(editBox, text);
+          editBox.focus();
+          editBox.setSelectionRange(editBox.value.length, editBox.value.length);
+        };
+        row.appendChild(text);
+
         const rm = document.createElement("button");
         rm.className = "taught-remove";
         rm.innerHTML = "&times;";
@@ -915,8 +977,6 @@ function renderChapter(subject, ch, color){
           scheduleRemoteSave();
           render();
         };
-        row.appendChild(bullet);
-        row.appendChild(text);
         row.appendChild(rm);
         taughtList.appendChild(row);
       });
@@ -931,25 +991,38 @@ function renderChapter(subject, ch, color){
     const chips = document.createElement("div");
     chips.className = "chips";
     ch.concepts.forEach((c, i) => {
-      const chip = document.createElement("span");
-      chip.className = "chip";
-      chip.style.background = color.tint;
-      chip.style.color = color.main;
-      chip.innerHTML = `${escapeHtml(c)} <span>&times;</span>`;
-      chip.querySelector("span").onclick = () => { ch.concepts.splice(i,1); render(); };
-      chips.appendChild(chip);
+      chips.appendChild(renderEditableChip(ch, "concepts", i, c, {
+        background: color.tint, color: color.main
+      }));
     });
+    const chipAddRow = document.createElement("div");
+    chipAddRow.className = "chip-add-row";
     const chipInput = document.createElement("input");
     chipInput.className = "chip-input";
-    chipInput.placeholder = "add a concept, press enter";
-    chipInput.onkeydown = (e) => {
-      if(e.key === "Enter"){
-        e.preventDefault();
-        const v = chipInput.value.trim();
-        if(v){ ch.concepts.push(v); render(); }
-      }
+    chipInput.placeholder = "add a concept, press enter or tap +";
+    chipInput.value = ch._conceptDraft || "";
+    chipInput.oninput = (e) => { ch._conceptDraft = e.target.value; saveLocalOnly(); };
+    const commitConcept = () => {
+      const v = chipInput.value.trim();
+      if(!v) return;
+      ch.concepts.push(v);
+      ch._conceptDraft = "";
+      saveLocalOnly();
+      scheduleRemoteSave();
+      render();
     };
-    chips.appendChild(chipInput);
+    chipInput.onkeydown = (e) => {
+      if(e.key === "Enter"){ e.preventDefault(); commitConcept(); }
+    };
+    chipAddRow.appendChild(chipInput);
+    const chipAddBtn = document.createElement("button");
+    chipAddBtn.type = "button";
+    chipAddBtn.className = "chip-add-btn";
+    chipAddBtn.title = "Add this concept";
+    chipAddBtn.textContent = "+";
+    chipAddBtn.onclick = commitConcept;
+    chipAddRow.appendChild(chipAddBtn);
+    chips.appendChild(chipAddRow);
     body.appendChild(chips);
 
     if(ch.formulae === undefined) ch.formulae = [];
@@ -961,25 +1034,38 @@ function renderChapter(subject, ch, color){
     const formulaeChips = document.createElement("div");
     formulaeChips.className = "chips";
     ch.formulae.forEach((f, i) => {
-      const chip = document.createElement("span");
-      chip.className = "chip formula-chip";
-      chip.style.background = "var(--ink)";
-      chip.style.color = "#fff";
-      chip.innerHTML = `${escapeHtml(f)} <span>&times;</span>`;
-      chip.querySelector("span").onclick = () => { ch.formulae.splice(i,1); render(); };
-      formulaeChips.appendChild(chip);
+      formulaeChips.appendChild(renderEditableChip(ch, "formulae", i, f, {
+        background: "var(--ink)", color: "#fff", extraClass: "formula-chip", mono: true
+      }));
     });
+    const formulaAddRow = document.createElement("div");
+    formulaAddRow.className = "chip-add-row";
     const formulaInput = document.createElement("input");
     formulaInput.className = "chip-input formula-input";
-    formulaInput.placeholder = "e.g. E = mc², press enter";
-    formulaInput.onkeydown = (e) => {
-      if(e.key === "Enter"){
-        e.preventDefault();
-        const v = formulaInput.value.trim();
-        if(v){ ch.formulae.push(v); render(); }
-      }
+    formulaInput.placeholder = "e.g. E = mc², press enter or tap +";
+    formulaInput.value = ch._formulaDraft || "";
+    formulaInput.oninput = (e) => { ch._formulaDraft = e.target.value; saveLocalOnly(); };
+    const commitFormula = () => {
+      const v = formulaInput.value.trim();
+      if(!v) return;
+      ch.formulae.push(v);
+      ch._formulaDraft = "";
+      saveLocalOnly();
+      scheduleRemoteSave();
+      render();
     };
-    formulaeChips.appendChild(formulaInput);
+    formulaInput.onkeydown = (e) => {
+      if(e.key === "Enter"){ e.preventDefault(); commitFormula(); }
+    };
+    formulaAddRow.appendChild(formulaInput);
+    const formulaAddBtn = document.createElement("button");
+    formulaAddBtn.type = "button";
+    formulaAddBtn.className = "chip-add-btn";
+    formulaAddBtn.title = "Add this formula";
+    formulaAddBtn.textContent = "+";
+    formulaAddBtn.onclick = commitFormula;
+    formulaAddRow.appendChild(formulaAddBtn);
+    formulaeChips.appendChild(formulaAddRow);
     body.appendChild(formulaeChips);
 
     const notesLabel = document.createElement("div");
@@ -998,6 +1084,56 @@ function renderChapter(subject, ch, color){
   }
 
   return wrap;
+}
+
+// Renders a single chip (concept or formula) that can be clicked to edit in place,
+// so items no longer need to be deleted and re-added just to fix a typo.
+function renderEditableChip(ch, listKey, i, value, opts){
+  const chip = document.createElement("span");
+  chip.className = "chip" + (opts.extraClass ? " " + opts.extraClass : "");
+  chip.style.background = opts.background;
+  chip.style.color = opts.color;
+
+  const text = document.createElement("span");
+  text.className = "chip-text";
+  text.textContent = value;
+  text.title = "Click to edit";
+  text.onclick = () => {
+    const editInput = document.createElement("input");
+    editInput.className = "chip-edit-input" + (opts.mono ? "" : "");
+    if(opts.mono) editInput.style.fontFamily = "var(--mono)";
+    editInput.value = value;
+    editInput.style.color = opts.color;
+    const finishEdit = (commit) => {
+      if(commit){
+        const v = editInput.value.trim();
+        if(v){
+          ch[listKey][i] = v;
+          saveLocalOnly();
+          scheduleRemoteSave();
+        }
+      }
+      render();
+    };
+    editInput.addEventListener("keydown", (e) => {
+      if(e.key === "Enter"){ e.preventDefault(); finishEdit(true); }
+      else if(e.key === "Escape"){ e.preventDefault(); finishEdit(false); }
+    });
+    editInput.addEventListener("blur", () => finishEdit(true));
+    chip.replaceChild(editInput, text);
+    editInput.focus();
+    editInput.setSelectionRange(editInput.value.length, editInput.value.length);
+  };
+  chip.appendChild(text);
+
+  const rm = document.createElement("span");
+  rm.className = "chip-x";
+  rm.innerHTML = "&times;";
+  rm.title = "Remove";
+  rm.onclick = () => { ch[listKey].splice(i, 1); saveLocalOnly(); scheduleRemoteSave(); render(); };
+  chip.appendChild(rm);
+
+  return chip;
 }
 
 function renderBubbles(ch, color){
