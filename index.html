@@ -268,6 +268,43 @@
   .daily-entry .de-hours{font-family:var(--mono);font-size:12px;background:var(--navy-tint);color:var(--navy);border-radius:4px;padding:3px 10px;flex-shrink:0;font-weight:700;}
   .daily-entry .de-summary{font-size:13.5px;color:var(--ink);flex:1;min-width:0;}
   .daily-entry .de-remove{border:none;background:none;color:var(--danger);cursor:pointer;font-size:14px;flex-shrink:0;}
+
+  .daily-view-toggle{display:flex;gap:6px;margin-bottom:14px;}
+  .daily-view-toggle button{font-family:var(--sans);font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:8px;border:1.5px solid var(--line);background:var(--card);color:var(--ink-faint);cursor:pointer;}
+  .daily-view-toggle button.active{border-color:var(--navy);color:var(--navy);background:var(--navy-tint);}
+
+  .cal-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:14px;}
+  .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .cal-header h3{margin:0;font-family:var(--serif);font-size:17px;font-weight:700;color:var(--ink);}
+  .cal-nav{display:flex;gap:6px;}
+  .cal-nav button{width:28px;height:28px;border-radius:7px;border:1.5px solid var(--line);background:var(--card);color:var(--ink-faint);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;}
+  .cal-nav button:hover{background:var(--paper-alt);color:var(--ink);}
+  .cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:4px;}
+  .cal-weekdays span{font-family:var(--mono);font-size:9.5px;color:var(--ink-faint);text-align:center;padding:4px 0;}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+  .cal-cell{position:relative;aspect-ratio:1;border-radius:8px;border:1.5px solid transparent;background:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;transition:background 120ms ease,border-color 120ms ease;padding:0;}
+  .cal-cell.empty-cell{visibility:hidden;cursor:default;}
+  .cal-cell .cal-daynum{font-family:var(--sans);font-size:12px;font-weight:600;color:var(--ink);}
+  .cal-cell .cal-hours-badge{font-family:var(--mono);font-size:8px;color:var(--teal);font-weight:700;}
+  .cal-cell.has-entries{background:var(--teal-tint);}
+  .cal-cell.today{border-color:var(--navy);}
+  .cal-cell.selected{background:var(--navy);}
+  .cal-cell.selected .cal-daynum{color:#fff;}
+  .cal-cell.selected .cal-hours-badge{color:#fff;}
+  .cal-cell:hover:not(.empty-cell){border-color:var(--line);}
+
+  .day-detail{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;margin-bottom:14px;}
+  .day-detail-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
+  .day-detail-head h4{margin:0;font-family:var(--serif);font-size:15px;font-weight:700;color:var(--ink);}
+  .day-detail-total{font-family:var(--mono);font-size:11px;color:var(--navy);background:var(--navy-tint);padding:3px 10px;border-radius:20px;font-weight:700;flex-shrink:0;}
+  .day-entry-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);}
+  .day-entry-row:last-child{border-bottom:none;}
+  .day-entry-row .de-hours{font-family:var(--mono);font-size:11px;background:var(--navy-tint);color:var(--navy);border-radius:4px;padding:3px 8px;flex-shrink:0;font-weight:700;}
+  .day-entry-row .de-summary{flex:1;font-size:13px;color:var(--ink);line-height:1.45;}
+  .day-entry-row .de-remove{border:none;background:none;color:var(--danger);cursor:pointer;font-size:14px;flex-shrink:0;}
+  .day-detail-empty{font-size:12.5px;color:var(--ink-faint);margin-bottom:10px;}
+  .day-quick-add{font-family:var(--sans);font-size:12px;font-weight:600;border:1.5px dashed var(--line);background:none;color:var(--navy);cursor:pointer;padding:7px 12px;border-radius:8px;}
+  .day-quick-add:hover{background:var(--navy-tint);}
 </style>
 </head>
 <body>
@@ -325,6 +362,8 @@
       </div>
       <button id="addDailyBtn">+ Add entry</button>
     </div>
+    <div class="daily-view-toggle" id="dailyViewToggle"></div>
+    <div id="dailyCalendarWrap"></div>
     <div class="daily-list" id="dailyList"></div>
   </div>
 
@@ -1470,10 +1509,44 @@ document.getElementById("forceRefreshBtn").onclick = async () => {
   result.className = syncState === "saved" ? "test-result ok" : "test-result err";
 };
 
+let dailyViewMode = "calendar"; // 'calendar' | 'list'
+let calendarCursor = new Date(); // tracks which month the calendar is showing
+let selectedCalDate = isoDateOf(new Date()); // 'YYYY-MM-DD' of the day currently expanded below the grid
+
+function isoDateOf(d){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function parseISODate(s){
+  const [y,m,d] = String(s).split("-").map(Number);
+  return new Date(y, (m||1)-1, d||1);
+}
+
 function renderDailyLog(){
-  const list = document.getElementById("dailyList");
   const total = state.dailyLog.reduce((a, e) => a + (Number(e.hours) || 0), 0);
   document.getElementById("dailyTotal").textContent = `${Math.round(total*100)/100} hrs logged`;
+
+  const toggle = document.getElementById("dailyViewToggle");
+  toggle.innerHTML = "";
+  [["calendar","Calendar"],["list","List"]].forEach(([mode,label]) => {
+    const btn = document.createElement("button");
+    btn.textContent = label;
+    btn.className = dailyViewMode === mode ? "active" : "";
+    btn.onclick = () => { dailyViewMode = mode; renderLocal(); };
+    toggle.appendChild(btn);
+  });
+
+  const calWrap = document.getElementById("dailyCalendarWrap");
+  const list = document.getElementById("dailyList");
+
+  if(dailyViewMode === "calendar"){
+    list.style.display = "none";
+    calWrap.style.display = "block";
+    renderDailyCalendar(calWrap);
+    return;
+  }
+
+  calWrap.style.display = "none";
+  list.style.display = "flex";
 
   if(state.dailyLog.length === 0){
     list.innerHTML = `<div class="empty">No study sessions logged yet — add today's above.</div>`;
@@ -1498,16 +1571,154 @@ function renderDailyLog(){
   });
 }
 
+// Groups log entries by date so the calendar can show, at a glance, which days had study time
+// and how much — without needing to open each day.
+function groupDailyLogByDate(){
+  const byDate = {};
+  state.dailyLog.forEach(e => {
+    if(!e.date) return;
+    if(!byDate[e.date]) byDate[e.date] = [];
+    byDate[e.date].push(e);
+  });
+  return byDate;
+}
+
+function renderDailyCalendar(container){
+  const byDate = groupDailyLogByDate();
+  const year = calendarCursor.getFullYear();
+  const month = calendarCursor.getMonth();
+  const monthLabel = calendarCursor.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+  const todayIso = isoDateOf(new Date());
+
+  const firstOfMonth = new Date(year, month, 1);
+  // Monday-first weekday index (0=Mon ... 6=Sun)
+  const leadingBlanks = (firstOfMonth.getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  container.innerHTML = "";
+
+  const card = document.createElement("div");
+  card.className = "cal-card";
+
+  const header = document.createElement("div");
+  header.className = "cal-header";
+  header.innerHTML = `<h3>${monthLabel}</h3>`;
+  const nav = document.createElement("div");
+  nav.className = "cal-nav";
+  const prevBtn = document.createElement("button");
+  prevBtn.innerHTML = "&#8249;";
+  prevBtn.title = "Previous month";
+  prevBtn.onclick = () => { calendarCursor = new Date(year, month - 1, 1); renderLocal(); };
+  const nextBtn = document.createElement("button");
+  nextBtn.innerHTML = "&#8250;";
+  nextBtn.title = "Next month";
+  nextBtn.onclick = () => { calendarCursor = new Date(year, month + 1, 1); renderLocal(); };
+  nav.appendChild(prevBtn);
+  nav.appendChild(nextBtn);
+  header.appendChild(nav);
+  card.appendChild(header);
+
+  const weekdays = document.createElement("div");
+  weekdays.className = "cal-weekdays";
+  ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].forEach(d => {
+    const s = document.createElement("span");
+    s.textContent = d;
+    weekdays.appendChild(s);
+  });
+  card.appendChild(weekdays);
+
+  const grid = document.createElement("div");
+  grid.className = "cal-grid";
+
+  for(let i = 0; i < leadingBlanks; i++){
+    const blank = document.createElement("div");
+    blank.className = "cal-cell empty-cell";
+    grid.appendChild(blank);
+  }
+
+  for(let day = 1; day <= daysInMonth; day++){
+    const iso = isoDateOf(new Date(year, month, day));
+    const entries = byDate[iso] || [];
+    const dayTotal = entries.reduce((a,e) => a + (Number(e.hours) || 0), 0);
+
+    const cell = document.createElement("div");
+    cell.className = "cal-cell"
+      + (entries.length ? " has-entries" : "")
+      + (iso === todayIso ? " today" : "")
+      + (iso === selectedCalDate ? " selected" : "");
+    cell.innerHTML = `<span class="cal-daynum">${day}</span>`
+      + (entries.length ? `<span class="cal-hours-badge">${Math.round(dayTotal*100)/100}h</span>` : "");
+    cell.title = entries.length ? `${entries.length} session${entries.length===1?"":"s"} · ${Math.round(dayTotal*100)/100} hrs` : "No sessions logged";
+    cell.onclick = () => { selectedCalDate = iso; renderLocal(); };
+    grid.appendChild(cell);
+  }
+
+  card.appendChild(grid);
+  container.appendChild(card);
+
+  container.appendChild(renderDayDetail(selectedCalDate, byDate[selectedCalDate] || []));
+}
+
+function renderDayDetail(iso, entries){
+  const panel = document.createElement("div");
+  panel.className = "day-detail";
+
+  const dateLabel = parseISODate(iso).toLocaleDateString("en-GB", { weekday: "long", day: "2-digit", month: "short", year: "numeric" });
+  const total = entries.reduce((a,e) => a + (Number(e.hours) || 0), 0);
+
+  const head = document.createElement("div");
+  head.className = "day-detail-head";
+  head.innerHTML = `<h4>${dateLabel}</h4>`
+    + (entries.length ? `<span class="day-detail-total">${Math.round(total*100)/100} hrs</span>` : "");
+  panel.appendChild(head);
+
+  if(!entries.length){
+    const empty = document.createElement("div");
+    empty.className = "day-detail-empty";
+    empty.textContent = "No study sessions logged for this day yet.";
+    panel.appendChild(empty);
+  } else {
+    entries.forEach(entry => {
+      const row = document.createElement("div");
+      row.className = "day-entry-row";
+      row.innerHTML = `
+        <span class="de-hours">${entry.hours || 0} hrs</span>
+        <span class="de-summary">${escapeHtml(entry.summary || "")}</span>
+        <button class="de-remove" title="Remove entry">&times;</button>`;
+      row.querySelector(".de-remove").onclick = () => {
+        state.dailyLog = state.dailyLog.filter(e => e.id !== entry.id);
+        render();
+      };
+      panel.appendChild(row);
+    });
+  }
+
+  const addBtn = document.createElement("button");
+  addBtn.className = "day-quick-add";
+  addBtn.textContent = "+ Log a session for this day";
+  addBtn.onclick = () => {
+    document.getElementById("dailyDateInput").value = iso;
+    const summaryInput = document.getElementById("dailySummaryInput");
+    summaryInput.scrollIntoView({ behavior: "smooth", block: "center" });
+    summaryInput.focus();
+  };
+  panel.appendChild(addBtn);
+
+  return panel;
+}
+
 document.getElementById("addDailyBtn").onclick = () => {
   const dateInput = document.getElementById("dailyDateInput");
   const hoursInput = document.getElementById("dailyHoursInput");
   const summaryInput = document.getElementById("dailySummaryInput");
-  const date = dateInput.value || new Date().toISOString().slice(0,10);
+  const date = dateInput.value || isoDateOf(new Date());
   const hours = parseFloat(hoursInput.value) || 0;
   const summary = summaryInput.value.trim();
   if(!summary){ summaryInput.focus(); return; }
   state.dailyLog.push({ id: uid(), date, hours, summary });
   dateInput.value = ""; hoursInput.value = ""; summaryInput.value = "";
+  selectedCalDate = date;
+  calendarCursor = parseISODate(date);
   render();
 };
 
