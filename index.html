@@ -273,19 +273,19 @@
   .daily-view-toggle button{font-family:var(--sans);font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:8px;border:1.5px solid var(--line);background:var(--card);color:var(--ink-faint);cursor:pointer;}
   .daily-view-toggle button.active{border-color:var(--navy);color:var(--navy);background:var(--navy-tint);}
 
-  .cal-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:14px;}
-  .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
-  .cal-header h3{margin:0;font-family:var(--serif);font-size:17px;font-weight:700;color:var(--ink);}
-  .cal-nav{display:flex;gap:6px;}
-  .cal-nav button{width:28px;height:28px;border-radius:7px;border:1.5px solid var(--line);background:var(--card);color:var(--ink-faint);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;}
+  .cal-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px;margin:0 auto 14px;max-width:320px;}
+  .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .cal-header h3{margin:0;font-family:var(--serif);font-size:14.5px;font-weight:700;color:var(--ink);}
+  .cal-nav{display:flex;gap:5px;}
+  .cal-nav button{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--line);background:var(--card);color:var(--ink-faint);cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;}
   .cal-nav button:hover{background:var(--paper-alt);color:var(--ink);}
-  .cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:4px;}
-  .cal-weekdays span{font-family:var(--mono);font-size:9.5px;color:var(--ink-faint);text-align:center;padding:4px 0;}
-  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
-  .cal-cell{position:relative;aspect-ratio:1;border-radius:8px;border:1.5px solid transparent;background:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;transition:background 120ms ease,border-color 120ms ease;padding:0;}
+  .cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:3px;}
+  .cal-weekdays span{font-family:var(--mono);font-size:8px;color:var(--ink-faint);text-align:center;padding:2px 0;}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+  .cal-cell{position:relative;aspect-ratio:1;border-radius:6px;border:1.5px solid transparent;background:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;transition:background 120ms ease,border-color 120ms ease;padding:0;}
   .cal-cell.empty-cell{visibility:hidden;cursor:default;}
-  .cal-cell .cal-daynum{font-family:var(--sans);font-size:12px;font-weight:600;color:var(--ink);}
-  .cal-cell .cal-hours-badge{font-family:var(--mono);font-size:8px;color:var(--teal);font-weight:700;}
+  .cal-cell .cal-daynum{font-family:var(--sans);font-size:10.5px;font-weight:600;color:var(--ink);}
+  .cal-cell .cal-hours-badge{font-family:var(--mono);font-size:7px;color:var(--teal);font-weight:700;}
   .cal-cell.has-entries{background:var(--teal-tint);}
   .cal-cell.today{border-color:var(--navy);}
   .cal-cell.selected{background:var(--navy);}
@@ -481,12 +481,12 @@ function renderLocal(){
   renderUI();
 }
 
-// Scrolls the freshly-opened pane (a subject's chapters, or the daily tracker) into view,
-// so opening it from the tab grid doesn't leave the person needing to scroll down manually.
-function scrollToPane(id){
+// Scrolls the freshly-opened pane (a subject's chapters, the daily tracker, or a calendar day's
+// detail) into view, so opening it doesn't leave the person needing to scroll down manually.
+function scrollToPane(id, block){
   requestAnimationFrame(() => {
     const el = document.getElementById(id);
-    if(el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if(el) el.scrollIntoView({ behavior: "smooth", block: block || "start" });
   });
 }
 
@@ -1649,7 +1649,7 @@ function renderDailyCalendar(container){
     cell.innerHTML = `<span class="cal-daynum">${day}</span>`
       + (entries.length ? `<span class="cal-hours-badge">${Math.round(dayTotal*100)/100}h</span>` : "");
     cell.title = entries.length ? `${entries.length} session${entries.length===1?"":"s"} · ${Math.round(dayTotal*100)/100} hrs` : "No sessions logged";
-    cell.onclick = () => { selectedCalDate = iso; renderLocal(); };
+    cell.onclick = () => { selectedCalDate = iso; renderLocal(); scrollToPane("dayDetailPanel", "nearest"); };
     grid.appendChild(cell);
   }
 
@@ -1662,6 +1662,7 @@ function renderDailyCalendar(container){
 function renderDayDetail(iso, entries){
   const panel = document.createElement("div");
   panel.className = "day-detail";
+  panel.id = "dayDetailPanel";
 
   const dateLabel = parseISODate(iso).toLocaleDateString("en-GB", { weekday: "long", day: "2-digit", month: "short", year: "numeric" });
   const total = entries.reduce((a,e) => a + (Number(e.hours) || 0), 0);
