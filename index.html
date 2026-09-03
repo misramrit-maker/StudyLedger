@@ -4,28 +4,28 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>Study Ledger</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap">
 <style>
   :root{
-    --paper:#F8F6FE;
-    --paper-alt:#EFEAFB;
+    --paper:#F7F5F0;
+    --paper-alt:#EEEAE1;
     --card:#FFFFFF;
-    --ink:#000000;
-    --ink-soft:#1A1A1A;
-    --ink-faint:#3D3D3D;
-    --line:#E3DDF5;
-    --teal:#06B98A;     --teal-tint:#D8FBF0;
-    --amber:#FFA800;    --amber-tint:#FFF1D6;
-    --coral:#FF5C7A;    --coral-tint:#FFE2E8;
-    --sage:#3FC46D;     --sage-tint:#E1FAE9;
-    --navy:#4D7CFF;     --navy-tint:#E6EDFF;
-    --plum:#9B5DE5;     --plum-tint:#F1E6FC;
+    --ink:#1B1A17;
+    --ink-soft:#2E2C27;
+    --ink-faint:#6E6A61;
+    --line:#E2DDD1;
+    --teal:#0D7D68;      --teal-tint:#DEF1EA;
+    --amber:#9C6B0C;     --amber-tint:#F5EAD4;
+    --coral:#AE3F53;     --coral-tint:#F4E1E4;
+    --sage:#3D7A50;      --sage-tint:#E1EFE2;
+    --navy:#33517E;      --navy-tint:#E3E9F1;
+    --plum:#634488;      --plum-tint:#EAE3F1;
     --deep-green:#1B4D3E;
     --deep-green-soft:#2E6B57;
-    --danger:#C81E3A;
-    --radius:16px;
-    --shadow:0 2px 4px rgba(37,28,61,0.05), 0 8px 20px rgba(37,28,61,0.07);
-    --serif:"Baloo 2","Poppins",sans-serif;
+    --danger:#A9293D;
+    --radius:12px;
+    --shadow:0 1px 2px rgba(30,26,20,0.05), 0 4px 12px rgba(30,26,20,0.06);
+    --serif:"Playfair Display","Georgia",serif;
     --mono:"Space Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
     --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   }
@@ -70,55 +70,73 @@
   .sync-status.offline .sync-dot{background:var(--coral);}
   .sync-status button{font-family:var(--mono);font-size:11px;border:none;background:none;color:var(--teal);cursor:pointer;text-decoration:underline;padding:0;margin-left:2px;}
 
-  .tabs{display:flex;flex-direction:column;gap:12px;margin-bottom:18px;}
+  .tabs{display:flex;flex-direction:column;gap:10px;margin-bottom:18px;}
   .tab{
     position:relative;
     flex:0 0 auto;
     display:flex;align-items:center;gap:10px;
-    padding:14px 16px;
-    border-radius:12px;
-    border:none;
+    padding:13px 16px;
+    border-radius:10px;
+    border:1.5px solid var(--line);
     background:var(--card);
-    font-size:14.5px;font-weight:700;color:var(--ink);
+    font-family:var(--sans);
+    font-size:14px;font-weight:600;color:var(--ink);
     cursor:pointer;white-space:nowrap;width:100%;
-    box-shadow: 0 5px 0 var(--tab-edge, var(--line)), 0 8px 16px rgba(37,28,61,0.14);
-    transition: transform 130ms ease, box-shadow 130ms ease;
+    box-shadow:var(--shadow);
+    transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
   }
-  .tab:hover{ transform: translateY(-2px); box-shadow: 0 7px 0 var(--tab-edge, var(--line)), 0 12px 20px rgba(37,28,61,0.18); }
-  .tab:active{ transform: translateY(3px); box-shadow: 0 1px 0 var(--tab-edge, var(--line)), 0 2px 8px rgba(37,28,61,0.12); }
-  .tab .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+  .tab:hover{ border-color:var(--tab-edge, var(--line)); box-shadow:0 2px 6px rgba(30,26,20,0.09); }
+  .tab .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
   .tab .chev{margin-left:auto;font-size:11px;color:var(--ink-faint);flex-shrink:0;transition:transform 130ms ease;}
   .tab.active{
-    transform: translateY(4px);
-    box-shadow: inset 0 2px 6px rgba(0,0,0,0.15), 0 1px 0 var(--tab-edge, var(--line));
-    color:var(--ink);
+    border-color:var(--tab-edge, var(--line));
+    background:var(--tab-tint, var(--paper-alt));
   }
   .tab.active .chev{ transform: rotate(90deg); }
-  .tab-divider{border:none;border-top:1px dashed var(--line);margin:8px 0 2px;}
-  .daily-tab{ --tab-edge: var(--navy); }
+  .tab-divider{border:none;border-top:1px dashed var(--line);margin:6px 0 2px;}
+  .daily-tab{ --tab-edge: var(--navy); --tab-tint: var(--navy-tint); }
 
   .subject-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;}
   .tab-tile{
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
-    padding:13px 5px 11px;
-    border-radius:10px;border:none;
-    background:var(--tab-color, var(--card));
-    cursor:pointer;text-align:center;min-height:82px;
-    box-shadow: 0 1px 2px rgba(30,22,50,0.10), 0 2px 6px rgba(30,22,50,0.10);
-    transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+    position:relative;
+    display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:7px;
+    padding:12px 10px 10px;
+    border-radius:10px;
+    border:1.5px solid var(--line);
+    background:var(--card);
+    cursor:pointer;text-align:left;min-height:86px;
+    box-shadow:var(--shadow);
+    transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+    overflow:hidden;
   }
-  .tab-tile:hover{ transform: translateY(-1px); box-shadow: 0 4px 10px rgba(30,22,50,0.18); filter:brightness(1.04); }
-  .tab-tile:active{ transform: translateY(0); filter:brightness(0.94); }
+  .tab-tile::before{
+    content:"";position:absolute;top:0;left:0;right:0;height:3px;
+    background:var(--tab-color, var(--line));
+  }
+  .tab-tile:hover{ transform: translateY(-1px); box-shadow:0 3px 10px rgba(30,26,20,0.10); }
+  .tab-tile:active{ transform: translateY(0); }
   .tab-tile.active{
-    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.9), 0 4px 12px rgba(30,22,50,0.22);
+    border-color:var(--tab-color, var(--line));
+    box-shadow:0 3px 10px rgba(30,26,20,0.12);
   }
-  .tab-tile .icon{font-size:19px;line-height:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,0.15));}
-  .tab-tile .tab-name{font-size:12.5px;font-weight:700;color:#fff;line-height:1.25;text-shadow:0 1px 2px rgba(0,0,0,0.18);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:100%;word-break:break-word;}
-  .tab-tile .tab-count{font-family:var(--mono);font-size:9.5px;color:rgba(255,255,255,0.82);}
-  .tab-tile.add-tile{background:var(--card);border:1.5px dashed var(--ink-faint);box-shadow:none;color:var(--ink-faint);}
-  .tab-tile.add-tile .icon{font-size:22px;color:var(--ink-faint);filter:none;}
-  .tab-tile.add-tile .tab-name{font-size:12.5px;color:var(--ink-faint);text-shadow:none;}
-  .tab-tile.add-tile:hover{transform:translateY(-1px);background:var(--paper-alt);filter:none;box-shadow:none;}
+  .tab-tile .icon-badge{
+    width:28px;height:28px;border-radius:8px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--tab-tint, var(--paper-alt));
+    font-size:14px;line-height:1;
+    transition: background 120ms ease;
+  }
+  .tab-tile.active .icon-badge{
+    background:var(--tab-color, var(--paper-alt));
+  }
+  .tab-tile .tab-name{font-family:var(--sans);font-size:12.5px;font-weight:600;color:var(--ink);line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:100%;word-break:break-word;}
+  .tab-tile .tab-count{font-family:var(--mono);font-size:9.5px;color:var(--ink-faint);}
+  .tab-tile.add-tile{background:var(--card);border:1.5px dashed var(--line);box-shadow:none;color:var(--ink-faint);align-items:center;justify-content:center;flex-direction:row;gap:6px;}
+  .tab-tile.add-tile::before{display:none;}
+  .tab-tile.add-tile .icon-badge{display:none;}
+  .tab-tile.add-tile .icon{font-size:15px;color:var(--ink-faint);}
+  .tab-tile.add-tile .tab-name{font-size:12.5px;font-weight:600;color:var(--ink-faint);}
+  .tab-tile.add-tile:hover{transform:translateY(-1px);background:var(--paper-alt);box-shadow:none;}
   @media (max-width:400px){ .subject-grid{grid-template-columns:repeat(3,1fr);} }
 
   .subject-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;}
@@ -200,6 +218,23 @@
   .taught-add-btn{flex-shrink:0;margin-top:2px;border:1.5px solid var(--line);background:var(--card);border-radius:8px;width:34px;height:34px;font-size:16px;font-weight:700;color:var(--ink-faint);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
   .taught-add-btn:hover{background:var(--paper-alt);color:var(--ink);}
 
+  .chip-deepdive-btn{border:none;background:none;cursor:pointer;font-size:11.5px;line-height:1;padding:0;opacity:0.75;}
+  .chip-deepdive-btn:hover{opacity:1;}
+  .deepdive-panel{margin:2px 0 12px;border:1.5px solid var(--plum);border-radius:12px;background:var(--plum-tint);padding:12px 14px;}
+  .deepdive-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;}
+  .deepdive-title{font-family:var(--serif);font-size:14.5px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:6px;}
+  .deepdive-title .grade-badge{font-family:var(--mono);font-size:9.5px;font-weight:700;background:var(--plum);color:#fff;border-radius:20px;padding:2px 8px;}
+  .deepdive-close{border:none;background:none;color:var(--ink-faint);cursor:pointer;font-size:15px;line-height:1;padding:0;}
+  .deepdive-close:hover{color:var(--ink);}
+  .deepdive-body{font-size:13.5px;line-height:1.6;color:var(--ink-soft);white-space:pre-wrap;}
+  .deepdive-loading{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--ink-faint);}
+  .deepdive-spinner{width:13px;height:13px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--plum);animation:deepdive-spin 0.7s linear infinite;flex-shrink:0;}
+  @keyframes deepdive-spin{to{transform:rotate(360deg);}}
+  .deepdive-error{font-size:12.5px;color:var(--danger);margin-bottom:6px;}
+  .deepdive-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding-top:8px;border-top:1px dashed var(--line);}
+  .deepdive-timestamp{font-family:var(--mono);font-size:10px;color:var(--ink-faint);}
+  .deepdive-retry, .deepdive-regen{font-family:var(--mono);font-size:11px;border:none;background:none;color:var(--plum);cursor:pointer;text-decoration:underline;padding:0;}
+
   .overlay{position:fixed;inset:0;background:rgba(32,41,31,0.45);display:none;align-items:center;justify-content:center;padding:20px;z-index:50;}
   .overlay.show{display:flex;}
   .modal{background:var(--card);border-radius:20px;padding:24px;max-width:460px;width:100%;box-shadow:0 12px 40px rgba(37,28,61,0.22);}
@@ -269,7 +304,7 @@
   <div class="sync-loading" id="syncLoading" style="display:none;padding:30px 10px;text-align:center;color:var(--ink-faint);font-size:13px;font-family:var(--mono);">Checking Drive for the latest data...</div>
   <div id="subjectPane"></div>
 
-  <div class="daily-section">
+  <div class="daily-section" id="dailySection">
     <div class="daily-head">
       <h2>📅 Daily study tracker</h2>
       <span class="daily-total" id="dailyTotal">0 hrs logged</span>
@@ -300,6 +335,7 @@
   <div class="modal">
     <h3>Drive sync</h3>
     <p>Paste the Web app URL from your Google Apps Script deployment (see <code>apps-script.gs</code> in the repo for the one-time setup). Once set, every change here saves automatically — no sign-in needed.</p>
+    <p style="margin-top:-6px;">This same connection also powers <b>🔍 Deep Dive</b> on concepts — add the deep-dive snippet from <code>apps-script-deepdive-addition.gs</code> to your script to enable it.</p>
     <input id="syncUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
     <div class="test-result" id="testResult"></div>
     <button id="forceRefreshBtn" style="width:100%;margin-top:4px;padding:10px;border-radius:8px;border:1.5px dashed var(--ink-faint);background:transparent;font-family:var(--mono);font-size:12px;color:var(--ink-soft);cursor:pointer;">&#8635; Force refresh from Drive (discard anything unsaved on this device)</button>
@@ -315,12 +351,12 @@
 const CONFIG = { SYNC_URL: "https://script.google.com/macros/s/AKfycbw6zYTjNHSksD4Ys9VQo8YJH2XoWiBt-5bBcZf7Fp3saAJHPrXNQLOrH-Rq1KD22soK/exec" };
 
 const PALETTE = [
-  { key: "teal",  main: "var(--teal)",  hex: "#06B98A", solid: "#0C8F7C", tint: "var(--teal-tint)" },
-  { key: "amber", main: "var(--amber)", hex: "#FFA800", solid: "#C97D1B", tint: "var(--amber-tint)" },
-  { key: "coral", main: "var(--coral)", hex: "#FF5C7A", solid: "#D64C67", tint: "var(--coral-tint)" },
-  { key: "sage",  main: "var(--sage)",  hex: "#3FC46D", solid: "#2E9C57", tint: "var(--sage-tint)" },
-  { key: "navy",  main: "var(--navy)",  hex: "#4D7CFF", solid: "#3E63D9", tint: "var(--navy-tint)" },
-  { key: "plum",  main: "var(--plum)",  hex: "#9B5DE5", solid: "#7C45C7", tint: "var(--plum-tint)" },
+  { key: "teal",  main: "var(--teal)",  hex: "#0D7D68", solid: "#0D7D68", tint: "var(--teal-tint)" },
+  { key: "amber", main: "var(--amber)", hex: "#9C6B0C", solid: "#9C6B0C", tint: "var(--amber-tint)" },
+  { key: "coral", main: "var(--coral)", hex: "#AE3F53", solid: "#AE3F53", tint: "var(--coral-tint)" },
+  { key: "sage",  main: "var(--sage)",  hex: "#3D7A50", solid: "#3D7A50", tint: "var(--sage-tint)" },
+  { key: "navy",  main: "var(--navy)",  hex: "#33517E", solid: "#33517E", tint: "var(--navy-tint)" },
+  { key: "plum",  main: "var(--plum)",  hex: "#634488", solid: "#634488", tint: "var(--plum-tint)" },
 ];
 
 function contrastText(hex){
@@ -404,6 +440,15 @@ function render(){
 // For UI-only state (navigation, expand/collapse) that shouldn't trigger a Drive sync.
 function renderLocal(){
   renderUI();
+}
+
+// Scrolls the freshly-opened pane (a subject's chapters, or the daily tracker) into view,
+// so opening it from the tab grid doesn't leave the person needing to scroll down manually.
+function scrollToPane(id){
+  requestAnimationFrame(() => {
+    const el = document.getElementById(id);
+    if(el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
 }
 
 function markPendingPush(v){
@@ -684,15 +729,18 @@ function renderTabs(){
     const tile = document.createElement("div");
     tile.className = "tab-tile" + (isActive ? " active" : "");
     tile.style.setProperty("--tab-color", c.solid);
+    tile.style.setProperty("--tab-tint", c.tint);
     const chapterCount = s.chapters ? s.chapters.length : 0;
     tile.innerHTML = `
-      <span class="icon">${subjectIcon(s.name)}</span>
+      <span class="icon-badge">${subjectIcon(s.name)}</span>
       <span class="tab-name">${escapeHtml(s.name)}</span>
       ${chapterCount ? `<span class="tab-count">${chapterCount} ch</span>` : ""}`;
     tile.onclick = () => {
+      const opening = !(state.currentView === "subjects" && state.selectedId === s.id);
       state.selectedId = (state.currentView === "subjects" && state.selectedId === s.id) ? null : s.id;
       state.currentView = "subjects";
       renderLocal();
+      if(opening) scrollToPane("subjectPane");
     };
     grid.appendChild(tile);
   });
@@ -705,9 +753,13 @@ function renderTabs(){
 
   const dailyTab = document.createElement("div");
   dailyTab.className = "tab daily-tab" + (state.currentView === "daily" ? " active" : "");
-  if(state.currentView === "daily") dailyTab.style.background = "var(--navy-tint)";
   dailyTab.innerHTML = `<span class="dot" style="background:var(--navy)"></span>📅 Daily tracker<span class="chev">&#9656;</span>`;
-  dailyTab.onclick = () => { state.currentView = "daily"; renderLocal(); };
+  dailyTab.onclick = () => {
+    const opening = state.currentView !== "daily";
+    state.currentView = "daily";
+    renderLocal();
+    if(opening) scrollToPane("dailySection");
+  };
 
   el.appendChild(grid);
 
@@ -769,6 +821,10 @@ function renderChapter(subject, ch, color){
     ch.taughtPoints = ch.taught ? String(ch.taught).split("\n").map(s => s.trim()).filter(Boolean) : [];
   }
   if(ch._taughtOpen === undefined) ch._taughtOpen = true;
+  if(ch.deepDives === undefined) ch.deepDives = {};
+  if(ch._deepDiveOpen === undefined) ch._deepDiveOpen = null;
+  if(ch._deepDiveLoading === undefined) ch._deepDiveLoading = null;
+  if(ch._deepDiveError === undefined) ch._deepDiveError = null;
 
   const wrap = document.createElement("div");
   wrap.className = "chapter";
@@ -992,7 +1048,7 @@ function renderChapter(subject, ch, color){
     chips.className = "chips";
     ch.concepts.forEach((c, i) => {
       chips.appendChild(renderEditableChip(ch, "concepts", i, c, {
-        background: color.tint, color: color.main
+        background: color.tint, color: color.main, deepDive: true, subject
       }));
     });
     const chipAddRow = document.createElement("div");
@@ -1024,6 +1080,10 @@ function renderChapter(subject, ch, color){
     chipAddRow.appendChild(chipAddBtn);
     chips.appendChild(chipAddRow);
     body.appendChild(chips);
+
+    if(ch._deepDiveOpen && ch.concepts.includes(ch._deepDiveOpen)){
+      body.appendChild(renderDeepDivePanel(subject, ch));
+    }
 
     if(ch.formulae === undefined) ch.formulae = [];
     const formulaeLabel = document.createElement("div");
@@ -1126,6 +1186,16 @@ function renderEditableChip(ch, listKey, i, value, opts){
   };
   chip.appendChild(text);
 
+  if(opts.deepDive){
+    const dd = document.createElement("button");
+    dd.type = "button";
+    dd.className = "chip-deepdive-btn";
+    dd.title = "Deep dive — get a Grade 8 level explanation";
+    dd.textContent = "🔍";
+    dd.onclick = (e) => { e.stopPropagation(); toggleDeepDive(opts.subject, ch, value); };
+    chip.appendChild(dd);
+  }
+
   const rm = document.createElement("span");
   rm.className = "chip-x";
   rm.innerHTML = "&times;";
@@ -1134,6 +1204,120 @@ function renderEditableChip(ch, listKey, i, value, opts){
   chip.appendChild(rm);
 
   return chip;
+}
+
+const DEEPDIVE_GRADE = 8;
+
+// Opens/closes the deep dive panel for a concept, kicking off a fetch the first time it's opened
+// (or re-using the cached explanation on subsequent opens, so we don't re-spend API calls).
+function toggleDeepDive(subject, ch, concept){
+  if(ch._deepDiveOpen === concept){
+    ch._deepDiveOpen = null;
+    renderLocal();
+    return;
+  }
+  ch._deepDiveOpen = concept;
+  ch._deepDiveError = null;
+  renderLocal();
+  if(!ch.deepDives[concept]){
+    requestDeepDive(subject, ch, concept, false);
+  }
+}
+
+async function requestDeepDive(subject, ch, concept, force){
+  if(!force && ch.deepDives[concept]){ renderLocal(); return; }
+  if(!syncUrl){
+    ch._deepDiveError = "Deep Dive needs your Drive sync connection — add one in Settings first.";
+    renderLocal();
+    return;
+  }
+  ch._deepDiveLoading = concept;
+  ch._deepDiveError = null;
+  renderLocal();
+  try{
+    const url = syncUrl + (syncUrl.includes("?") ? "&" : "?")
+      + "action=deepdive"
+      + "&grade=" + DEEPDIVE_GRADE
+      + "&subject=" + encodeURIComponent(subject.name || "")
+      + "&chapter=" + encodeURIComponent(ch.name || "")
+      + "&concept=" + encodeURIComponent(concept);
+    const res = await fetchWithRetry(url, { method: "GET" }, { retries: 1, timeoutMs: 45000 });
+    const data = await safeJson(res);
+    if(data && data.error) throw new Error(data.error);
+    const text = ((data && (data.explanation || data.text)) || "").trim();
+    if(!text) throw new Error("The AI endpoint returned an empty response.");
+    ch.deepDives[concept] = { text, generatedAt: Date.now() };
+    ch._deepDiveLoading = null;
+    saveLocalOnly();
+    scheduleRemoteSave();
+    render();
+  }catch(e){
+    console.error("Deep dive failed", e);
+    ch._deepDiveLoading = null;
+    ch._deepDiveError = e.message || "Something went wrong fetching the explanation.";
+    renderLocal();
+  }
+}
+
+function renderDeepDivePanel(subject, ch){
+  const concept = ch._deepDiveOpen;
+  const panel = document.createElement("div");
+  panel.className = "deepdive-panel";
+
+  const head = document.createElement("div");
+  head.className = "deepdive-head";
+  const title = document.createElement("div");
+  title.className = "deepdive-title";
+  title.innerHTML = `🔍 ${escapeHtml(concept)} <span class="grade-badge">Grade ${DEEPDIVE_GRADE}</span>`;
+  head.appendChild(title);
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "deepdive-close";
+  close.innerHTML = "&times;";
+  close.title = "Close";
+  close.onclick = () => { ch._deepDiveOpen = null; renderLocal(); };
+  head.appendChild(close);
+  panel.appendChild(head);
+
+  if(ch._deepDiveLoading === concept){
+    const loading = document.createElement("div");
+    loading.className = "deepdive-loading";
+    loading.innerHTML = `<span class="deepdive-spinner"></span> Thinking it through...`;
+    panel.appendChild(loading);
+  } else if(ch._deepDiveError){
+    const err = document.createElement("div");
+    err.className = "deepdive-error";
+    err.textContent = ch._deepDiveError;
+    panel.appendChild(err);
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "deepdive-retry";
+    retry.textContent = "Try again";
+    retry.onclick = () => requestDeepDive(subject, ch, concept, true);
+    panel.appendChild(retry);
+  } else if(ch.deepDives[concept]){
+    const entry = ch.deepDives[concept];
+    const body = document.createElement("div");
+    body.className = "deepdive-body";
+    body.textContent = entry.text;
+    panel.appendChild(body);
+
+    const footer = document.createElement("div");
+    footer.className = "deepdive-footer";
+    const ts = document.createElement("span");
+    ts.className = "deepdive-timestamp";
+    ts.textContent = "generated " + new Date(entry.generatedAt).toLocaleString();
+    footer.appendChild(ts);
+    const regen = document.createElement("button");
+    regen.type = "button";
+    regen.className = "deepdive-regen";
+    regen.textContent = "regenerate";
+    regen.onclick = () => requestDeepDive(subject, ch, concept, true);
+    footer.appendChild(regen);
+    panel.appendChild(footer);
+  }
+
+  return panel;
 }
 
 function renderBubbles(ch, color){
@@ -1208,7 +1392,7 @@ function removeSubject(id){
   render();
 }
 function addChapter(subject){
-  subject.chapters.push({ id: uid(), name: "New chapter", concepts: [], formulae: [], notes: "", confidence: 0, revisions: [], teacher: "", classDate: "", taught: "", taughtPoints: [], _open: false, _taughtOpen: true });
+  subject.chapters.push({ id: uid(), name: "New chapter", concepts: [], formulae: [], notes: "", confidence: 0, revisions: [], teacher: "", classDate: "", taught: "", taughtPoints: [], deepDives: {}, _open: false, _taughtOpen: true });
   render();
 }
 
