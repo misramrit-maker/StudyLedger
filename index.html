@@ -96,15 +96,16 @@
   .tab-divider{border:none;border-top:1px dashed var(--line);margin:6px 0 2px;}
   .daily-tab{ --tab-edge: var(--navy); --tab-tint: var(--navy-tint); }
 
-  .subject-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;}
+  .subject-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
   .tab-tile{
     position:relative;
-    display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:7px;
-    padding:12px 10px 10px;
+    display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;
+    padding:9px 12px;
     border-radius:10px;
     border:1.5px solid var(--line);
     background:var(--card);
-    cursor:pointer;text-align:left;min-height:86px;
+    cursor:pointer;text-align:left;min-height:auto;min-width:104px;
+    flex:0 0 auto;
     box-shadow:var(--shadow);
     transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
     overflow:hidden;
@@ -120,24 +121,23 @@
     box-shadow:0 3px 10px rgba(30,26,20,0.12);
   }
   .tab-tile .icon-badge{
-    width:28px;height:28px;border-radius:8px;flex-shrink:0;
+    width:22px;height:22px;border-radius:6px;flex-shrink:0;
     display:flex;align-items:center;justify-content:center;
     background:var(--tab-tint, var(--paper-alt));
-    font-size:14px;line-height:1;
+    font-size:11.5px;line-height:1;
     transition: background 120ms ease;
   }
   .tab-tile.active .icon-badge{
     background:var(--tab-color, var(--paper-alt));
   }
-  .tab-tile .tab-name{font-family:var(--sans);font-size:12.5px;font-weight:600;color:var(--ink);line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:100%;word-break:break-word;}
-  .tab-tile .tab-count{font-family:var(--mono);font-size:9.5px;color:var(--ink-faint);}
-  .tab-tile.add-tile{background:var(--card);border:1.5px dashed var(--line);box-shadow:none;color:var(--ink-faint);align-items:center;justify-content:center;flex-direction:row;gap:6px;}
+  .tab-tile .tab-name{flex:1;min-width:0;font-family:var(--sans);font-size:12.5px;font-weight:600;color:var(--ink);line-height:1.25;white-space:normal;word-break:break-word;}
+  .tab-tile .tab-count{flex-shrink:0;font-family:var(--mono);font-size:9.5px;color:var(--ink-faint);}
+  .tab-tile.add-tile{background:var(--card);border:1.5px dashed var(--line);box-shadow:none;color:var(--ink-faint);justify-content:center;gap:6px;}
   .tab-tile.add-tile::before{display:none;}
   .tab-tile.add-tile .icon-badge{display:none;}
   .tab-tile.add-tile .icon{font-size:15px;color:var(--ink-faint);}
-  .tab-tile.add-tile .tab-name{font-size:12.5px;font-weight:600;color:var(--ink-faint);}
+  .tab-tile.add-tile .tab-name{flex:none;font-size:12.5px;font-weight:600;color:var(--ink-faint);}
   .tab-tile.add-tile:hover{transform:translateY(-1px);background:var(--paper-alt);box-shadow:none;}
-  @media (max-width:400px){ .subject-grid{grid-template-columns:repeat(3,1fr);} }
 
   .subject-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;}
   .subject-head input{font-family:var(--serif);font-size:24px;font-weight:700;border:none;background:transparent;color:inherit;outline:none;flex:1;min-width:0;padding:2px 0;}
@@ -715,7 +715,35 @@ setInterval(() => {
   if(canAutoPull()) pullFromScript();
 }, 90000);
 
+// Tile widths are computed from on-screen text measurements, so a viewport resize (e.g. rotating
+// a phone, or resizing a desktop window) can change how much space is available — recompute so
+// tiles don't stay sized for the old width.
+let tileResizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(tileResizeTimer);
+  tileResizeTimer = setTimeout(() => {
+    const grid = document.querySelector(".subject-grid");
+    if(grid) applyUniformTileWidth(grid);
+  }, 150);
+});
 
+
+
+// Measures the natural (single-line) width every tile would need, then gives every tile —
+// including the "+ subject" tile — that same width, so the row reads as a tidy uniform grid
+// instead of ragged tag-shaped chips. Capped so one very long subject name can't blow the rest
+// of the tiles out; a name past the cap wraps onto a second line rather than getting truncated.
+function applyUniformTileWidth(grid){
+  const tiles = Array.from(grid.querySelectorAll(".tab-tile"));
+  if(!tiles.length) return;
+  tiles.forEach(t => { t.style.width = ""; });
+  const MIN_WIDTH = 104;
+  const MAX_WIDTH = 200;
+  let natural = 0;
+  tiles.forEach(t => { natural = Math.max(natural, t.getBoundingClientRect().width); });
+  const target = Math.min(Math.max(Math.ceil(natural), MIN_WIDTH), MAX_WIDTH);
+  tiles.forEach(t => { t.style.width = target + "px"; });
+}
 
 function renderTabs(){
   const el = document.getElementById("tabs");
@@ -733,7 +761,7 @@ function renderTabs(){
     const chapterCount = s.chapters ? s.chapters.length : 0;
     tile.innerHTML = `
       <span class="icon-badge">${subjectIcon(s.name)}</span>
-      <span class="tab-name">${escapeHtml(s.name)}</span>
+      <span class="tab-name" title="${escapeAttr(s.name)}">${escapeHtml(s.name)}</span>
       ${chapterCount ? `<span class="tab-count">${chapterCount} ch</span>` : ""}`;
     tile.onclick = () => {
       const opening = !(state.currentView === "subjects" && state.selectedId === s.id);
@@ -751,6 +779,9 @@ function renderTabs(){
   addTile.onclick = addSubject;
   grid.appendChild(addTile);
 
+  el.appendChild(grid);
+  applyUniformTileWidth(grid);
+
   const dailyTab = document.createElement("div");
   dailyTab.className = "tab daily-tab" + (state.currentView === "daily" ? " active" : "");
   dailyTab.innerHTML = `<span class="dot" style="background:var(--navy)"></span>📅 Daily tracker<span class="chev">&#9656;</span>`;
@@ -760,8 +791,6 @@ function renderTabs(){
     renderLocal();
     if(opening) scrollToPane("dailySection");
   };
-
-  el.appendChild(grid);
 
   const divider = document.createElement("hr");
   divider.className = "tab-divider";
